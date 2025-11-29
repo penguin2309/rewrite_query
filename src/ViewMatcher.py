@@ -10,7 +10,7 @@ from agg_matcher import check_agg
 import re
 from matcher_with_sub_q import _match_top
 
-def view_match(query_sql,view_sql):
+def view_match(query_sql:str,view_sql:List[str])->str:
     return _match_top(query_sql,view_sql)
 
 """

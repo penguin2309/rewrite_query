@@ -130,7 +130,6 @@ def test3(PU_q, PU_v, eq_classes_q,legal_view_col_set):
     def replace_column(node):
         if isinstance(node, exp.Column):
             current_col = column(tab=node.table or "", col=node.name)
-            print("**")
             if current_col in col_to_rep:
                 rep_col = col_to_rep[current_col]
                 return exp.Column(
@@ -156,7 +155,9 @@ def test3(PU_q, PU_v, eq_classes_q,legal_view_col_set):
             norm_q_keys.add(key)
         except Exception:
             return False
-    dif=norm_q_keys.difference(norm_v_keys)
+    dif=norm_v_keys.difference(norm_q_keys)^norm_q_keys.difference(norm_v_keys)
+
+    print("test3_____",dif)
     if dif.issubset(norm_q_keys):
         # 检查输出列是否满足条件（3.2节）：
         replacement_map = {}
@@ -172,6 +173,7 @@ def test3(PU_q, PU_v, eq_classes_q,legal_view_col_set):
                     else:
                         return False, None
         if replacement_map:
+            #print("replacement map_:",replacement_map)
             replaced_results = []
             for d in dif:
                 p = parse_one(d)

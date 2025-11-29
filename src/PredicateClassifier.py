@@ -13,9 +13,8 @@ class ra_p:
         return f"{self.col}{self.op}{str(self.num)}"
 
 def _parse_literal(lit: expressions.Literal):
-    """将 sqlglot 的 Literal 转换为 Python 原生值"""
     if lit.is_string:
-        return lit.this  # 字符串
+        return None
     else:
         # 尝试转为数字
         try:
@@ -24,7 +23,7 @@ def _parse_literal(lit: expressions.Literal):
             else:
                 return int(lit.this)
         except ValueError:
-            return lit.this
+            return None
 
 def is_range_p(predicate):
     #return is_legal,col op number
@@ -37,15 +36,17 @@ def is_range_p(predicate):
         col = column(r.table, r.name)
         num=_parse_literal(l)
         flag=True
+        if num is None:
+            return 0, None, None, None
     elif isinstance(r,expressions.Literal) and isinstance(l,expressions.Column):
         col=column(l.table,l.name)
         num=_parse_literal(r)
-
+        if num is None:
+            return 0, None, None, None
     else:
         if isinstance(l,expressions.Column) and isinstance(r,expressions.Column) and isinstance(predicate,expressions.EQ):
-            return 2,None,None,None
+            return 2,None,None,None#PE
         return 0,None,None,None
-
     match type(predicate):
         case expressions.EQ:
             op="=="

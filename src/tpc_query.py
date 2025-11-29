@@ -73,7 +73,7 @@ def main():
  order by ext_price desc, i_brand_id
 limit 100 ;
         """
-        s=view_match(s,view_sql)
+        #s=view_match(s,view_sql)
         res=spark.sql(s)
         res.cache()
         res.show()

@@ -56,14 +56,13 @@ class SPJGExpression:
     def get(self,tables_structure):
         self.tables_structure=tables_structure
         joins=self.ast.args.get("joins")
-        new_predicates = []
         if joins:
             for join in joins:
                 k=join.args.get("kind")
                 s=join.args.get("side")
                 if (k is not None and k.upper()=="INNER") or \
                         (s is None):
-                    new_predicates.append(self._flatten_and(join.args.get("on")))
+                    self.where_predicates+=self._flatten_and(join.args.get("on"))
                 else:
                     #外连接
                     print("OUTER JOIN")
@@ -107,10 +106,13 @@ class SPJGExpression:
                 self.group_by.append(expr)
 
         p = self.ast.args.get("where")
+        new_predicates = []
         if p:
-            self.where_predicates = self._flatten_and(p.this)
-
+            self.where_predicates += self._flatten_and(p.this)
+        if self.where_predicates:
             for pred in self.where_predicates:
+                if pred is None:
+                    continue
                 new_pred = pred.copy()
                 for col_node in new_pred.find_all(exp.Column):
                     if not col_node.table:
@@ -152,7 +154,7 @@ class SPJGExpression:
 
     def get_all_group_by_columns(self):
         columns = set()
-        print("*",self.tables_structure)
+        #print("*",self.tables_structure)
         for expr in self.group_by:
             for col_node in expr.find_all(exp.Column):
                 print(col_node)

@@ -113,108 +113,6 @@ def _spjg_view_match(query_sql,view_sql,detail=True):
     else:
         return new_query_sql
 
-def join_to_from(sql):
-    ast = parse_one(sql)
-
-    def _convert_select_joins(select_node: exp.Select) -> exp.Select:
-        from_clause = select_node.args.get("from")
-        joins = select_node.args.get("joins")
-        print("*&^&____",joins)
-        if not joins:
-            return select_node
-
-        tables = []
-        print("**___", from_clause.args)
-        if from_clause and from_clause.expressions:
-            tables.extend(from_clause.expressions)
-        else:
-            pass
-        on_conditions = []
-        for join in joins:
-            kind = join.args.get("kind")
-            if kind and kind.upper() != "INNER":
-                pass
-
-            tables.append(join.this)
-            on_cond = join.args.get("on")
-            if on_cond:
-                on_conditions.append(on_cond)
-
-        new_from = exp.From(expressions=tables)
-
-        current_where = select_node.args.get("where")
-        if on_conditions:
-            combined_on = on_conditions[0]
-            for cond in on_conditions[1:]:
-                combined_on = exp.And(this=combined_on, expression=cond)
-
-            if current_where:
-                new_where_expr = exp.And(this=current_where.this, expression=combined_on)
-            else:
-                new_where_expr = combined_on
-
-            new_where = exp.Where(this=new_where_expr)
-        else:
-            new_where = current_where
-
-        new_select = select_node.copy()
-        new_select.set("from", new_from)
-        new_select.set("joins", [])
-        if new_where:
-            new_select.set("where", new_where)
-        else:
-            new_select.args.pop("where", None)
-
-        return new_select
-
-    def _recursive_convert(node):
-        if isinstance(node, exp.Select):
-            new_node = node.copy()
-            for key, value in new_node.args.items():
-                if value is None:
-                    continue
-                if isinstance(value, list):
-                    new_value = []
-                    for item in value:
-                        new_item = _recursive_convert(item)
-                        new_value.append(new_item)
-                    new_node.set(key, new_value)
-                else:
-                    new_converted = _recursive_convert(value)
-                    if new_converted is not value:
-                        new_node.set(key, new_converted)
-            final_node = _convert_select_joins(new_node)
-            return final_node
-
-        elif isinstance(node, (exp.Subquery, exp.CTE)):
-            new_node = node.copy()
-            for key, value in new_node.args.items():
-                if value is None:
-                    continue
-                new_converted = _recursive_convert(value)
-                if new_converted is not value:
-                    new_node.set(key, new_converted)
-            return new_node
-
-        elif isinstance(node, list):
-            return [_recursive_convert(item) for item in node]
-
-        elif hasattr(node, 'args') and isinstance(node.args, dict):
-            # 通用递归：处理其他表达式节点（如 Where, From, Join 等）
-            new_node = node.copy()
-            for key, value in new_node.args.items():
-                if value is None:
-                    continue
-                new_converted = _recursive_convert(value)
-                if new_converted is not value:
-                    new_node.set(key, new_converted)
-            return new_node
-
-        else:
-            return node
-
-    return _recursive_convert(ast)
-
 def _optimize_condition_in_place(cond, view):
     if isinstance(cond, exp.In):
         # 发现 IN 子查询 → 优化内部 SELECT
@@ -234,7 +132,7 @@ def _optimize_condition_in_place(cond, view):
         if hasattr(cond, 'expression') and cond.expression:
             _optimize_condition_in_place(cond.expression, view)
 
-def _match_all(query_ast_node,view):
+def _match_all(query_ast_node,views):
     if not isinstance(query_ast_node, exp.Select):
         return query_ast_node
 
@@ -243,7 +141,7 @@ def _match_all(query_ast_node,view):
     if with_clause:
         new_ctes = []
         for cte in with_clause.expressions:
-            opt_body = _match_all(cte.this, view)
+            opt_body = _match_all(cte.this, views)
             if opt_body is not cte.this:
                 new_cte = cte.copy()
                 new_cte.set("this", opt_body)
@@ -258,7 +156,7 @@ def _match_all(query_ast_node,view):
             for join_or_table in from_clause.expressions:
                 table = join_or_table.this if hasattr(join_or_table, 'this') else join_or_table
                 if isinstance(table, exp.Subquery):
-                    new_inner_select = _match_all(table.this, view)
+                    new_inner_select = _match_all(table.this, views)
                     if new_inner_select is not table.this:
                         table.set("this", new_inner_select)
 
@@ -266,24 +164,24 @@ def _match_all(query_ast_node,view):
         if where_clause:
             for in_node in where_clause.find_all(exp.In):
                 if isinstance(in_node.args.get("query").this, exp.Select):
-                    new_query = _match_all(in_node.args["query"].this, view)
+                    new_query = _match_all(in_node.args["query"].this, views)
                     in_node.set("query", new_query)
 
             for exists_node in where_clause.find_all(exp.Exists):
-                new_inner = _match_all(exists_node.this, view)
+                new_inner = _match_all(exists_node.this, views)
                 exists_node.set("this", new_inner)
 
         new_expressions = []
         for expr in new_node.expressions:
             if isinstance(expr, exp.Subquery):
-                optimized_inner = _match_all(expr.this, view)
+                optimized_inner = _match_all(expr.this, views)
                 if optimized_inner is not expr.this:
                     expr = expr.copy()
                     expr.set("this", optimized_inner)
                 new_expressions.append(expr)
 
             elif isinstance(expr, exp.Alias) and isinstance(expr.this, exp.Subquery):
-                optimized_inner = _match_all(expr.this.this, view)
+                optimized_inner = _match_all(expr.this.this, views)
                 if optimized_inner is not expr.this.this:
                     expr = expr.copy()
                     expr.this.set("this", optimized_inner)
@@ -296,25 +194,17 @@ def _match_all(query_ast_node,view):
         #有问题!!
         having_clause = new_node.args.get("having")
         if having_clause:
-            _optimize_condition_in_place(having_clause, view)
+            _optimize_condition_in_place(having_clause, views)
         return new_node
     else:
-        return _spjg_view_match(str(query_ast_node),view,False)
+        for view in views:
+            print(view,type(view))
+            match_res=_spjg_view_match(str(query_ast_node),view,False)
+            if match_res and match_res!="":
+                return match_res
+        return new_node#是否正确？
 
-def _match_top(query_sql,view_sql):
+def _match_top(query_sql:str,view_sqls:List[str])->str:
     query_ast=parse_one(query_sql)
-    new_query_ast=_match_all(query_ast,view_sql)
-    return new_query_ast
-
-sqlll="""
-select a
-from t1
-left join b on xx=yy
-right join c on xx=zz
-full inner join c on xx=yyy
-join cz on xx=zzzzz
-where aaaaa=bbbbb;
-"""
-#print(repr(parse_one(sqlll)))
-#print(join_to_from(sqlll))
-a=SPJGExpression(sqlll)
+    new_query=_match_all(query_ast,view_sqls)
+    return new_query
