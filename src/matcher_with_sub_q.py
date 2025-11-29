@@ -38,7 +38,7 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     col_replacement_map={}
     for col_new,col_old in changed_select_cols:
         if col_new.alias=="" or col_new.alias is None:
-            col_new_name=col_new.table
+            col_new_name=col_new.col
         else:
             col_new_name=col_new.alias
         #if query_sql.find(str(col_old))!=-1:
@@ -48,8 +48,9 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
         key = (col_old.table, col_old.col)
         new_col_expr=exp.Column(
             this=exp.Identifier(this=col_new_name),
-            table=exp.Identifier(this=col_new.table) if col_new.table else None
+            table=exp.Identifier(this=col_new.table)
         )
+        #print("*********",col_new_name)
         col_replacement_map[key] = new_col_expr
     def replace_columns(node):
         if isinstance(node, exp.Column):
@@ -58,8 +59,11 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
             else:
                 table_name = node.table
             col_name = node.name
+            #table_name=view_name
+            print(Colors.GREEN,node.name,Colors.END)
             key = (table_name, col_name)
             if key in col_replacement_map:
+                print(Colors.YELLOW,key,col_replacement_map[key],Colors.END)
                 return col_replacement_map[key]
         return node
     query_sql= str(query_sql.transform(replace_columns))
@@ -72,11 +76,21 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     wh_ = query_sql.upper().find("WHERE")
     if fr_!=-1 and wh_!=-1:
         query_sql=query_sql[:fr_]+"FROM "+view_name+"\n"+query_sql[wh_:]
-
+    print("****",where_add_str)
     wh_ = query_sql.upper().find("WHERE")
     gr_ = query_sql.upper().find("GROUP")
     if wh_!=-1 and gr_!=-1:
         query_sql=query_sql[:wh_]+where_add_str+"\n"+query_sql[gr_:]
+    elif wh_!=-1:
+        hav_=query_sql.upper().find("HAVING") if query_sql.upper().find("HAVING")!=-1 else 99999999
+        ord_=query_sql.upper().find("ORDER") if query_sql.upper().find("ORDER")!=-1 else 99999999
+        lim_=query_sql.upper().find("LIMIT") if query_sql.upper().find("LIMIT")!=-1 else 99999999
+        if hav_!=99999999 or ord_!=99999999 or lim_!=99999999:
+            k=min(hav_,ord_,lim_)
+            query_sql=query_sql[:wh_]+"\n"+where_add_str+"\n"+query_sql[k:]
+        else:
+            query_sql=query_sql[:wh_]+"\n"+where_add_str
+
 
     gr_ = query_sql.upper().find("GROUP")
     if gr_!=-1:
@@ -101,11 +115,11 @@ def _spjg_view_match(query_sql,view_sql,detail=True):
     flag1,c1,c2,c3,changed_select_cols=spj_view_match(query_spj,view_spj,PR_q,PU_q,PR_v,PU_v,eq_classes_q,eq_classes_v)
     if not flag1:
         print("false1")
-        return False, None, None, None,None,None,None
+        return None
     (flag6,rewrite_map)=check_agg(query_spj,view_spj,eq_classes_q,eq_classes_v)
     if not flag6:
         print("false6")
-        return False, None, None, None,None,None,None
+        return None
     new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map)
     print(Colors.YELLOW,"NewNew:",c1,c2,c3,changed_select_cols,re,Colors.END)
     if detail:
@@ -195,16 +209,20 @@ def _match_all(query_ast_node,views):
         having_clause = new_node.args.get("having")
         if having_clause:
             _optimize_condition_in_place(having_clause, views)
+        print(type(new_node))
         return new_node
     else:
         for view in views:
             print(view,type(view))
-            match_res=_spjg_view_match(str(query_ast_node),view,False)
-            if match_res and match_res!="":
-                return match_res
+            try:
+                match_res=_spjg_view_match(str(query_ast_node),view,False)
+                if match_res and match_res!="":
+                    return parse_one(match_res)
+            except:
+                continue
         return new_node#是否正确？
 
 def _match_top(query_sql:str,view_sqls:List[str])->str:
     query_ast=parse_one(query_sql)
-    new_query=_match_all(query_ast,view_sqls)
+    new_query=_match_all(query_ast,view_sqls).sql(pretty=True)
     return new_query

@@ -4,29 +4,26 @@ from ViewMatcher import view_match
 from tpc_query import Colors
 sql_view=[]
 sql_query=[]
-'''
-sql_view.append("""
-select  i_brand_id brand_id_VIEW, i_brand brand_VIEW,
-d_date_sk,ss_sold_date_sk,
- 	sum(ss_ext_sales_price) ext_price
- from date_dim, store_sales, item
- where ss_item_sk = i_item_sk
- 	and i_manager_id=36
- 	and d_moy=12
- 	and d_year=2001
- group by i_brand, i_brand_id;
-""")
 
-sql_query.append("""
-with cs_ui as
- (select cs_item_sk
-        ,sum(cs_ext_list_price) as sale,sum(cr_refunded_cash+cr_reversed_charge+cr_store_credit) as refund
+sql_view.append("""
+select cs_item_sk,cs_order_number
+        ,sum(cs_ext_list_price) as sale,sum(cr_refunded_cash) as refund
   from catalog_sales
       ,catalog_returns
   where cs_item_sk = cr_item_sk
     and cs_order_number = cr_order_number
-  group by cs_item_sk
-  having sum(cs_ext_list_price)>2*sum(cr_refunded_cash+cr_reversed_charge+cr_store_credit)),
+  group by cs_item_sk,cs_order_number;
+""")
+
+sql_query.append("""
+with cs_ui as
+ (select cs_item_sk,cs_order_number
+        ,sum(cs_ext_list_price) as sale,sum(cr_refunded_cash) as refund
+  from catalog_sales
+      ,catalog_returns
+  where cs_item_sk = cr_item_sk
+    and cs_order_number = cr_order_number
+  group by cs_item_sk),
 cross_sales as
  (select i_product_name product_name
      ,i_item_sk item_sk
@@ -137,13 +134,7 @@ order by cs1.product_name
        ,cs1.s1
        ,cs2.s1;
 """)
-'''
-sql_query.append("""
-select dv_version,dv_create_date from dbgen_version where dv_version='abc' and  dv_create_date='ioj';
-""")
-sql_view.append("""
-select dv_version,dv_create_date from dbgen_version where dv_version='abc';
-""")
+
 print(repr(parse_one(sql_query[0])))
 for i,query in enumerate(sql_query):
     if i>0:
