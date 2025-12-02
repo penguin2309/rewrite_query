@@ -9,8 +9,8 @@ from TableStructure import *
 def check_group_by_subset(query_spj, view_spj,eq_classes_q):
     query_cols = query_spj.get_all_group_by_columns()
     view_cols = view_spj.get_all_group_by_columns()
-    print("query_cols",query_cols)
-    print("view_cols",view_cols)
+    #print("query_cols",query_cols)
+    #print("view_cols",view_cols)
     if len(view_cols)==0:
         return True
     for col in query_cols:
@@ -30,46 +30,31 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
     v_count_big_output_name = None
     # V 的 SUM(C) 参数的规范列到 V 输出列名的映射 {Canonical_Col: V_Output_Name}
     v_sum_args_map: Dict[column, str] = {}
-
-    # 遍历 V 的 SELECT 列表（即 v_spj.col）和聚合表达式（v_spj.aggr_exprs）
-    # 查找 V 的聚合函数及其对应的输出列名
-
-    # 假设 V 的 SELECT 列表中，列是按照 SPJExpression.col 中的顺序，
-    # 并且聚合函数在 aggr_exprs 中有对应，且列名（别名）可从 SPJExpression 获取。
-
-    # 由于您的 SPJExpression.col 只存储 column 对象，这里需要一个假设的 helper
-    # 来获取 V 聚合输出的别名，我们先直接遍历 aggr_exprs:
-
+    v_sum_exp_args_map: Dict[str, str] = {}
     for i, v_agg in enumerate(view_spj.aggr_exprs):
-        # 假设 V 的输出列名/别名可以直接从 SPJExpression.col 或某种映射中获取。
-        # 这里我们简化，假设 V 的输出列是 V.Col1, V.Col2...
         v_output_name = view_spj.aggregates[i].alias
-        #print(v_agg,view_spj.aggregates[i].alias,"=====")
-        if v_agg.this == "COUNT_BIG":
-            # 找到 COUNT_BIG(*)
+        print("\n\n\n\n\n\n\n\n******&(***(:",type(v_agg.this),v_agg.this
+              ,"\n\n\n\n\n\n\n\n")
+        if str(v_agg.this).upper() == "COUNT_BIG":#有问题！！
             v_count_big_output_name =v_output_name
-
         elif isinstance(v_agg, expressions.Sum):
-            # 找到 SUM(C)，并获取其参数 C 的规范形式
-            # 假设参数是单列 (C)，将其转换为 column 对象
-            v_arg_col = column(v_agg.this.table or "", v_agg.this.name)
-            #print(v_arg_col)
-            #print(eq_manager_q.fa)
-            v_canon = v_arg_col#eq_manager_q.get(v_arg_col.col)
-
-            # 将规范列映射到 V 的输出列名
-            v_sum_args_map[v_canon] = v_output_name
+            if isinstance(v_agg.this,expressions.Column):
+                v_arg_col = column(v_agg.this.table, v_agg.this.name)
+                v_sum_args_map[v_arg_col] = v_output_name
+            else:
+                v_sum_exp_args_map[str(v_agg.this)] = v_output_name
+            print("\n\n\n\n\n\n\n\n******&(***(\n\n\n\n\n\n\n\n")
 
     # 2. 检查 Q 的聚合函数并记录重写信息
     for q_agg in query_spj.aggr_exprs:
         q_type = query_spj.get_aggregate_type(q_agg)
-        #print(str(q_agg),q_type,"*(*(*(*^^^^")
         if str(q_agg.this) == "*":
             q_arg_canon = None
         else:
-            # 假设 Q 的聚合参数是单列
-            q_arg_col = column(q_agg.this.table or "", q_agg.this.name)
-            q_arg_canon = q_arg_col#eq_manager_q.get(q_arg_col)  # Q 的聚合参数的规范形式
+            if isinstance(q_agg.this,expressions.Column):
+                q_arg_canon = column(q_agg.this.table, q_agg.this.name)
+            else:
+                q_arg_canon = str(q_agg.this) #表达式 e.g.2*a+b
 
         # A. COUNT(*) 重写检查
         if q_type == "count" and str(q_agg.this) == "*":
@@ -82,6 +67,9 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
         # B. SUM(E) 检查
         elif q_type == "sum":
             # 检查 V 是否有 SUM(E') 且 E' 与 E 语义等价 (q_arg_canon 必须在 V 的映射中)
+            if isinstance(q_arg_canon,str):
+                for v_arg in v_sum_exp_args_map:
+                    continue
             if q_arg_canon not in v_sum_args_map:
                 if len(view_spj.get_all_group_by_columns())==0:
                     eq_cols=eq_manager_v.get_all_eq_cols(q_arg_canon)
@@ -91,7 +79,7 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
                                 rewrite_map[str(q_agg)] = f"SUM({eq_col})"
                         continue
                 print(
-                    f"Test Aggregation Failed: SUM argument '{q_arg_col}' not found in view's canonical SUM arguments.")
+                    f"Test Aggregation Failed: SUM argument '{q_arg_canon}' not found in view's canonical SUM arguments.")
                 return False, None
 
             v_output_name = v_sum_args_map[q_arg_canon]

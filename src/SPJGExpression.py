@@ -31,7 +31,7 @@ class SPJGExpression:
         self.ast=parse_one(self.origin_sql)
         if len(self.ast.args.get("expressions"))==1 and \
                 isinstance(self.ast.args.get("expressions")[0],expressions.Literal):
-            self.ast.set("expressions",[])
+            self.ast.set("expressions",[])#select 1 ...
         self.tables=set()
         self.col=[]
         self.old_col=[]
