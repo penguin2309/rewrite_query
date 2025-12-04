@@ -60,10 +60,10 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
                 table_name = node.table
             col_name = node.name
             #table_name=view_name
-            print(Colors.GREEN,node.name,Colors.END)
+            #print(Colors.GREEN,node.name,Colors.END)
             key = (table_name, col_name)
             if key in col_replacement_map:
-                print(Colors.YELLOW,key,col_replacement_map[key],Colors.END)
+                #print(Colors.YELLOW,key,col_replacement_map[key],Colors.END)
                 return col_replacement_map[key]
         return node
     query_sql= str(query_sql.transform(replace_columns))
@@ -76,7 +76,9 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     wh_ = query_sql.upper().find("WHERE")
     if fr_!=-1 and wh_!=-1:
         query_sql=query_sql[:fr_]+"FROM "+view_name+"\n"+query_sql[wh_:]
-    print("****",where_add_str)
+    elif fr_!=-1:
+        query_sql=query_sql[:fr_]+"FROM "+view_name
+    #print("****",where_add_str)
     wh_ = query_sql.upper().find("WHERE")
     gr_ = query_sql.upper().find("GROUP")
     if wh_!=-1 and gr_!=-1:
@@ -95,6 +97,7 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     gr_ = query_sql.upper().find("GROUP")
     if gr_!=-1:
         query_sql = query_sql[:gr_-1]+query_sql[gr_:]
+    #print(query_sql)
     return query_sql
 
 def _spjg_view_match(query_sql,view_sql,detail=True):
@@ -121,7 +124,7 @@ def _spjg_view_match(query_sql,view_sql,detail=True):
         print("false6")
         return None
     new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map)
-    print(Colors.YELLOW,"NewNew:",c1,c2,c3,changed_select_cols,re,Colors.END)
+    #print(Colors.YELLOW,"NewNew:",c1,c2,c3,changed_select_cols,re,Colors.END)
     if detail:
         return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
     else:
@@ -147,10 +150,18 @@ def _optimize_condition_in_place(cond, view):
             _optimize_condition_in_place(cond.expression, view)
 
 def _match_all(query_ast_node,views):
-    if not isinstance(query_ast_node, exp.Select):
+    if not isinstance(query_ast_node, exp.Select) and not isinstance(query_ast_node, exp.Union):
         return query_ast_node
 
     new_node = query_ast_node.copy()
+    if isinstance(query_ast_node, exp.Union):
+        new_exp=_match_all(query_ast_node.expression, views)
+        new_this=_match_all(query_ast_node.this, views)
+        new_node.set("this",new_this)
+        new_node.set("expression",new_exp)
+        #print('\033[94m:________',new_this,"\033[0m")
+        return new_node
+
     with_clause = new_node.args.get("with")
     if with_clause:
         new_ctes = []
@@ -226,5 +237,6 @@ def _match_all(query_ast_node,views):
 
 def _match_top(query_sql:str,view_sqls:List[str])->str:
     query_ast=parse_one(query_sql)
+    #print("\033[92m",repr(query_ast),"\033[0m")
     new_query=_match_all(query_ast,view_sqls).sql(pretty=True)
     return new_query

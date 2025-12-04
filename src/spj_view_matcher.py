@@ -157,7 +157,7 @@ def test3(PU_q, PU_v, eq_classes_q,legal_view_col_set):
             return False
     dif=norm_v_keys.difference(norm_q_keys)^norm_q_keys.difference(norm_v_keys)
 
-    print("test3_____",dif)
+    #print("test3_____",dif)
     if dif.issubset(norm_q_keys):
         # 检查输出列是否满足条件（3.2节）：
         replacement_map = {}
@@ -214,7 +214,7 @@ def find_col_to_replace(legal_view_col_set,eq_classes,col,eq_classes_q=None):
         for cols in eq_classes_q:
             for c in cols:
                 if c==col_q:
-                    print(c.alias,"###")
+                    #print(c.alias,"###")
                     return c
     return None
 

@@ -4,7 +4,7 @@ from typing import List,Set,Optional
 #from TableStructure import *
 
 def validate_spjg(ast):
-    print(repr(ast))
+    #print(repr(ast))
     flag = False
     if ast.args.get("group") or ast.args.get("having"):
         flag = True
