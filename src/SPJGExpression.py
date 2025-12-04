@@ -116,6 +116,7 @@ class SPJGExpression:
                 new_pred = pred.copy()
                 for col_node in new_pred.find_all(exp.Column):
                     if not col_node.table:
+                        print("$$:",col_node, col_node.name, col_node.alias)
                         tb = find_table(str(col_node.name))
                         if tb is None or tb == "":
                             raise ValueError(f"Column '{col_node.name}' in WHERE must specify table")

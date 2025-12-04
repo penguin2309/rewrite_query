@@ -209,17 +209,19 @@ def _match_all(query_ast_node,views):
         having_clause = new_node.args.get("having")
         if having_clause:
             _optimize_condition_in_place(having_clause, views)
-        print(type(new_node))
+        #print(type(new_node))
         return new_node
     else:
         for view in views:
-            print(view,type(view))
-            #try:
-            match_res=_spjg_view_match(str(query_ast_node),view,False)
-            if match_res and match_res!="":
-                return parse_one(match_res)
-            #except:
-            #    continue
+            #print(view,type(view))
+            try:
+            #print(str(query_ast_node)," $$$")
+                match_res=_spjg_view_match(str(query_ast_node),view,False)
+                if match_res and match_res!="":
+                    return parse_one(match_res)
+            except Exception as e:
+                print(f"处理失败: {e}")
+                continue
         return new_node#是否正确？
 
 def _match_top(query_sql:str,view_sqls:List[str])->str:
