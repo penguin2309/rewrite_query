@@ -101,6 +101,7 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     return query_sql
 
 def _spjg_view_match(query_sql,view_sql,detail=True):
+    #print('\033[94mq:::',query_sql)
     tables_structure = tpc_build_tables_structure()
     query_spj=SPJGExpression(query_sql,tables_structure)
     view_spj=SPJGExpression(view_sql,tables_structure)
@@ -124,7 +125,7 @@ def _spjg_view_match(query_sql,view_sql,detail=True):
         print("false6")
         return None
     new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map)
-    #print(Colors.YELLOW,"NewNew:",c1,c2,c3,changed_select_cols,re,Colors.END)
+    print(Colors.YELLOW,"New￥:",c1,c2,c3,changed_select_cols,re,Colors.END)
     if detail:
         return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
     else:
@@ -152,7 +153,7 @@ def _optimize_condition_in_place(cond, view):
 def _match_all(query_ast_node,views):
     if not isinstance(query_ast_node, exp.Select) and not isinstance(query_ast_node, exp.Union):
         return query_ast_node
-
+    #print('\033[92m', query_ast_node)
     new_node = query_ast_node.copy()
     if isinstance(query_ast_node, exp.Union):
         new_exp=_match_all(query_ast_node.expression, views)
@@ -166,6 +167,7 @@ def _match_all(query_ast_node,views):
     if with_clause:
         new_ctes = []
         for cte in with_clause.expressions:
+            #print('\033[94mcte',cte.this)
             opt_body = _match_all(cte.this, views)
             if opt_body is not cte.this:
                 new_cte = cte.copy()
@@ -178,12 +180,11 @@ def _match_all(query_ast_node,views):
     if _contains_subquery(query_ast_node):
         from_clause = new_node.args.get("from")
         if from_clause:
-            for join_or_table in from_clause.expressions:
-                table = join_or_table.this if hasattr(join_or_table, 'this') else join_or_table
-                if isinstance(table, exp.Subquery):
-                    new_inner_select = _match_all(table.this, views)
-                    if new_inner_select is not table.this:
-                        table.set("this", new_inner_select)
+            #print('\033[91mfrom_clause________',repr(from_clause))
+            if isinstance(from_clause.this, exp.Subquery):
+                new_from=_match_all(from_clause.this.this, views)
+                if new_from is not from_clause.this:
+                    from_clause.set("this", new_from)
 
         where_clause = new_node.args.get("where")
         if where_clause:

@@ -21,7 +21,7 @@ def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
     Tuple[bool, str, str]
         (是否等价, 简化后的表达式1, 简化后的表达式2)
     """
-    print(exp1, exp2, eq_classes)
+    #print(exp1, exp2, eq_classes)
     try:
         # 解析表达式
         expr1 = sympify(exp1)
@@ -72,5 +72,7 @@ def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
         return is_equivalent
 
     except Exception as e:
-        raise ValueError(f"表达式解析或处理失败: {e}")
+        #print('\033[93m',exp1)
+        return exp1==exp2
+        #raise ValueError(f"表达式解析或处理失败: {e}")
 
