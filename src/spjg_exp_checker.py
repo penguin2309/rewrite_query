@@ -25,10 +25,14 @@ def validate_spjg(ast):
                         or (flag and isinstance(k, expressions.Count)) \
                         or (flag and isinstance(k, expressions.Anonymous) and str(k).upper() == "COUNT_BIG(*)"):
                     continue
+                elif isinstance(k, expressions.Round):
+                    continue
+                elif isinstance(k, expressions.Literal):
+                    continue
                 else:
-                    raise ValueError("err1")
-        elif not isinstance(expr, expressions.Column):
-            raise ValueError("err2")
+                    raise ValueError("err1 in validate spjg")
+        elif not isinstance(expr, expressions.Column) and not isinstance(expr, expressions.Round):
+            raise ValueError("err2 in validate spjg")
 
 
 def _contains_subquery(node):

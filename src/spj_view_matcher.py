@@ -7,6 +7,9 @@ from EquivalenceClassManager import EquivalenceClassManager
 from PredicateClassifier import *
 from TableStructure import *
 from SPJGExpression import *
+from src.expr_checker import is_exp_eq
+
+
 def test1(eq_classes_q, eq_classes_v):
     v_to_q = {}
     compensation = set()
@@ -255,7 +258,7 @@ def can_express_compensating_predicates(legal_view_col_set,eq_classes,compensati
                 return False,None,None
     return True,changed_compensation_eq,changed_compensation_ra
 
-def can_compute_query_output_from_view(cols_q,cols_v,eq_classes_q,eq_classes_v):
+def can_compute_query_output_from_view(cols_q,cols_v,exprs_q,exprs_v,v_expr_alias,eq_classes_q,eq_classes_v):
     changed_select_cols=[]
     for col in cols_q:
         c=find_col_to_replace(cols_v,eq_classes_q,col,eq_classes_v)
@@ -263,6 +266,14 @@ def can_compute_query_output_from_view(cols_q,cols_v,eq_classes_q,eq_classes_v):
             changed_select_cols.append((c,col))
         else:
             return False,None
+    for expr_q in exprs_q:
+        for i,expr_v in enumerate(exprs_v):
+            if is_exp_eq(expr_q,expr_v):
+                if v_expr_alias[i]=="":
+                    v_=expr_v
+                else:
+                    v_=v_expr_alias[i]
+                changed_select_cols.append((v_,expr_q))
     changed_select_cols=list(set(changed_select_cols))
     return True,changed_select_cols
 
@@ -283,9 +294,8 @@ def spj_view_match(query_spj,view_spj,PR_q,PU_q,PR_v,PU_v,eq_classes_q,eq_classe
     if not flag4:
         print("false4")
         return False, None, None, None, None
-    (flag5,changed_select_cols)=can_compute_query_output_from_view(query_spj.old_col,view_spj.col,eq_classes_q.get_all_equivalences(),eq_classes_v.get_all_equivalences())
+    (flag5,changed_select_cols)=can_compute_query_output_from_view(query_spj.old_col,view_spj.col,query_spj.select_exprs,view_spj.select_exprs,view_spj.select_exprs_alias,eq_classes_q.get_all_equivalences(),eq_classes_v.get_all_equivalences())
     if not flag5:
         print("false5")
         return False, None, None, None, None
-
     return True,c1,c2,c3,changed_select_cols

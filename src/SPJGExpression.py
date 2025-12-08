@@ -39,10 +39,13 @@ class SPJGExpression:
         self.group_by=[]
         self.aggregates=[]
         self.aggr_exprs=[]
-
-        validate_spjg(self.ast)
+        self.select_exprs=[]#处理select a/b,round(a/b),...情况
+        self.select_exprs_alias=[]
+        self.literal_expr=[]#select 'c' from xxx
+        self.literal_expr_alias=[]
         self.added_eq_classes=[]#3.2节
         self.tables_structure=[]
+        validate_spjg(self.ast)
         self.get(tables_structure)
 
 
@@ -72,7 +75,7 @@ class SPJGExpression:
                 self.tables.add(tab.name)
 
         for expr in self.ast.expressions:
-
+            #print("$$:::",expr.this,type(expr.this))
             if isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Sum):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
@@ -86,12 +89,22 @@ class SPJGExpression:
                 #print("COUNT_BIG(*)")
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
-
+            elif self.is_exp(self,expr):
+                if isinstance(expr,expressions.Alias):
+                    self.select_exprs.append(expr.this)
+                    self.select_exprs_alias.append(expr.alias)
+                else:
+                    self.select_exprs.append(expr)
+                    self.select_exprs_alias.append("")
             else:
                 alias_name = None
                 if isinstance(expr, expressions.Alias):
                     alias_name=expr.alias
                     expr=expr.this
+                if isinstance(expr, expressions.Literal):
+                    self.literal_expr.append(expr)
+                    self.literal_expr_alias.append(alias_name)
+                    continue
                 tb = expr.table
                 if tb == "":
                     tb=find_table(str(expr.name))
@@ -116,7 +129,7 @@ class SPJGExpression:
                 new_pred = pred.copy()
                 for col_node in new_pred.find_all(exp.Column):
                     if not col_node.table:
-                        print("$$:",col_node, col_node.name, col_node.alias)
+                        #print("$$:",col_node, col_node.name, col_node.alias)
                         tb = find_table(str(col_node.name))
                         if tb is None or tb == "":
                             raise ValueError(f"Column '{col_node.name}' in WHERE must specify table")
@@ -125,7 +138,6 @@ class SPJGExpression:
                 new_predicates.append(new_pred)
 
             self.where_predicates = new_predicates  # 更新存储的内容
-
 
     def get_all_columns(self):
         cols=set(self.col)
@@ -158,7 +170,7 @@ class SPJGExpression:
         #print("*",self.tables_structure)
         for expr in self.group_by:
             for col_node in expr.find_all(exp.Column):
-                print(col_node)
+                #print(col_node)
                 columns.add(column(col_node.table, col_node.name,self.tables_structure))
         return list(columns)
 
@@ -172,3 +184,30 @@ class SPJGExpression:
         elif isinstance(agg_expr, expressions.Avg):
             return "avg"
         return None
+    @staticmethod
+    def is_exp(self,expr):
+        if isinstance(expr, expressions.Alias):
+            if isinstance(expr.this, expressions.Round):
+                return True
+            if isinstance(expr.this, expressions.Add):
+                return True
+            if isinstance(expr.this, expressions.Sub):
+                return True
+            if isinstance(expr.this, expressions.Mul):
+                return True
+            if isinstance(expr.this, expressions.Div):
+                return True
+        else:
+            if isinstance(expr, expressions.Round):
+                return True
+            if isinstance(expr, expressions.Add):
+                return True
+            if isinstance(expr, expressions.Sub):
+                return True
+            if isinstance(expr, expressions.Mul):
+                return True
+            if isinstance(expr, expressions.Div):
+                return True
+        return False
+
+

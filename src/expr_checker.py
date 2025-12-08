@@ -73,6 +73,7 @@ def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
 
     except Exception as e:
         #print('\033[93m',exp1)
+        print('\033[92mIN expr_eq_checker:',e,'使用字符串匹配\033[0m')
         return exp1==exp2
         #raise ValueError(f"表达式解析或处理失败: {e}")
 

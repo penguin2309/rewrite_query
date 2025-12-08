@@ -2,7 +2,7 @@ from sqlglot.optimizer.qualify import qualify
 from spj_view_matcher import spj_view_match
 from sqlglot import expressions as exp
 from typing import Dict,Tuple,Optional
-from SPJGExpression import SPJGExpression
+from SPJGExpression import column
 from EquivalenceClassManager import EquivalenceClassManager
 from PredicateClassifier import *
 from TableStructure import *
@@ -37,33 +37,40 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
 
     col_replacement_map={}
     for col_new,col_old in changed_select_cols:
-        if col_new.alias=="" or col_new.alias is None:
-            col_new_name=col_new.col
+        if not str(type(col_old))=="<class 'SPJGExpression.column'>":
+            key=col_old
+            if isinstance(col_new,str):
+                new_col_expr=exp.Column(
+                    this=exp.Identifier(this=col_new),
+                    #table=exp.Identifier(this="")
+                )
+            else:
+                new_col_expr=col_new
         else:
-            col_new_name=col_new.alias
-        #if query_sql.find(str(col_old))!=-1:
-            #query_sql=query_sql.replace(str(col_old),col_new_name)
-        #else:
-            #query_sql=query_sql.replace(str(col_old.col),str(col_new_name))
-        key = (col_old.table, col_old.col)
-        new_col_expr=exp.Column(
-            this=exp.Identifier(this=col_new_name),
-            table=exp.Identifier(this=col_new.table)
-        )
-        #print("*********",col_new_name)
+            if col_new.alias=="" or col_new.alias is None:
+                col_new_name=col_new.col
+            else:
+                col_new_name=col_new.alias
+            key = (col_old.table, col_old.col)
+            new_col_expr=exp.Column(
+                this=exp.Identifier(this=col_new_name),
+                table=exp.Identifier(this=col_new.table)
+            )
         col_replacement_map[key] = new_col_expr
+
+    #print("*********", col_replacement_map)
     def replace_columns(node):
+
+        if node in col_replacement_map:
+            return col_replacement_map[node]
         if isinstance(node, exp.Column):
             if node.table is None or node.table=="":
                 table_name=find_table(node.name)
             else:
                 table_name = node.table
             col_name = node.name
-            #table_name=view_name
-            #print(Colors.GREEN,node.name,Colors.END)
             key = (table_name, col_name)
             if key in col_replacement_map:
-                #print(Colors.YELLOW,key,col_replacement_map[key],Colors.END)
                 return col_replacement_map[key]
         return node
     query_sql= str(query_sql.transform(replace_columns))
