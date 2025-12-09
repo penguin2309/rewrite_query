@@ -55,4 +55,4 @@ class EquivalenceClassManager:
                     return eq_class
             return []
         except:
-            return None
+            return []

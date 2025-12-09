@@ -37,12 +37,15 @@ class SPJGExpression:
         self.old_col=[]
         self.where_predicates=[]
         self.group_by=[]
+        self.group_by_rollup=[]
         self.aggregates=[]
         self.aggr_exprs=[]
-        self.select_exprs=[]#处理select a/b,round(a/b),...情况
+        self.select_exprs=[]#处理select a/b,round(a/b),...情况/cast
         self.select_exprs_alias=[]
         self.literal_expr=[]#select 'c' from xxx
         self.literal_expr_alias=[]
+        #self.cast_exprs=[]
+        #self.cast_exprs_alias=[]
         self.added_eq_classes=[]#3.2节
         self.tables_structure=[]
         validate_spjg(self.ast)
@@ -117,6 +120,9 @@ class SPJGExpression:
         if group_by_expr:
             for expr in group_by_expr.expressions:
                 self.group_by.append(expr)
+            rollup_exprs = group_by_expr.args.get('rollup') or []
+            for expr in rollup_exprs:
+                self.group_by_rollup.append(expr)
 
         p = self.ast.args.get("where")
         new_predicates = []
@@ -135,8 +141,13 @@ class SPJGExpression:
                             raise ValueError(f"Column '{col_node.name}' in WHERE must specify table")
                         else:
                             col_node.set("table", exp.Identifier(this=tb))
-                new_predicates.append(new_pred)
-
+                if isinstance(new_pred, expressions.Between):
+                    p=self.split_between_expression(self,new_pred)
+                    new_predicates.append(p[0])
+                    new_predicates.append(p[1])
+                else:
+                    new_predicates.append(new_pred)
+            #print(new_predicates)
             self.where_predicates = new_predicates  # 更新存储的内容
 
     def get_all_columns(self):
@@ -197,6 +208,10 @@ class SPJGExpression:
                 return True
             if isinstance(expr.this, expressions.Div):
                 return True
+            if isinstance(expr.this, expressions.Cast):
+                return True
+            if isinstance(expr.this, expressions.DPipe):
+                return True
         else:
             if isinstance(expr, expressions.Round):
                 return True
@@ -208,6 +223,22 @@ class SPJGExpression:
                 return True
             if isinstance(expr, expressions.Div):
                 return True
+            if isinstance(expr, expressions.Cast):
+                return True
+            if isinstance(expr, expressions.DPipe):
+                return True
         return False
-
-
+    @staticmethod
+    def split_between_expression(self,between_expr):
+        this = between_expr.this  # 被比较的表达式
+        low = between_expr.args.get('low')  # 下限
+        high = between_expr.args.get('high')  # 上限
+        symmetric = between_expr.args.get('symmetric', False)  # 是否对称
+        if symmetric:
+            lower_bound = exp.GT(this=this, expression=low)
+            upper_bound = exp.LT(this=this, expression=high)  # this < high
+        else:
+            # 普通BETWEEN: 下限 <= 表达式 <= 上限
+            lower_bound = exp.GTE(this=this, expression=low)
+            upper_bound = exp.LTE(this=this, expression=high)  # this <= high
+        return [lower_bound, upper_bound]

@@ -19,6 +19,9 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
         where_add_str=where_add_str+str(col1)+" = "+str(col2)+"\nAND "
     flag=True
     for i,(col,op,num) in enumerate(c2):
+        if len(c2)==1 and op=="<":
+            where_add_str=where_add_str+str(col)+" "+op+" "+str(num)+"\nAND "
+            break
         if op==">" and i<len(c2)-1:
             if c2[i+1][1]=="<" and 0<c2[i+1][2]-num<1e-7:
                 where_add_str = where_add_str + str(col) + " = " + str((num+c2[i+1][2])/2) + "\nAND "
@@ -57,10 +60,7 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
                 table=exp.Identifier(this=col_new.table)
             )
         col_replacement_map[key] = new_col_expr
-
-    #print("*********", col_replacement_map)
     def replace_columns(node):
-
         if node in col_replacement_map:
             return col_replacement_map[node]
         if isinstance(node, exp.Column):
@@ -74,7 +74,6 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
                 return col_replacement_map[key]
         return node
     query_sql= str(query_sql.transform(replace_columns))
-
     for expr_old in rewrite_map:
         expr_new=rewrite_map[expr_old]
         #query_sql=query_sql.replace(str(expr_old),str(expr_new))
@@ -99,15 +98,12 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
             query_sql=query_sql[:wh_]+"\n"+where_add_str+"\n"+query_sql[k:]
         else:
             query_sql=query_sql[:wh_]+"\n"+where_add_str
-
-
     gr_ = query_sql.upper().find("GROUP")
     if gr_!=-1:
         query_sql = query_sql[:gr_-1]+query_sql[gr_:]
-    #print(query_sql)
     return query_sql
 
-def _spjg_view_match(query_sql,view_sql,detail=True):
+def _spjg_view_match(query_sql,view_sql,view_name="VIEW",detail=True):
     #print('\033[94mq:::',query_sql)
     tables_structure = tpc_build_tables_structure()
     query_spj=SPJGExpression(query_sql,tables_structure)
@@ -131,8 +127,13 @@ def _spjg_view_match(query_sql,view_sql,detail=True):
     if not flag6:
         print("false6")
         return None
-    new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map)
-    print(Colors.YELLOW,"New￥:",c1,c2,c3,changed_select_cols,re,Colors.END)
+    new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name)
+    print(Colors.YELLOW,"New￥:",
+          "\nc1:",c1,
+          "\nc2:",c2,
+          "\nc3:",c3,
+          "\nselect:",changed_select_cols,
+          "\nagg:",rewrite_map,Colors.END)
     if detail:
         return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
     else:
@@ -196,7 +197,7 @@ def _match_all(query_ast_node,views):
         where_clause = new_node.args.get("where")
         if where_clause:
             for in_node in where_clause.find_all(exp.In):
-                if isinstance(in_node.args.get("query").this, exp.Select):
+                if in_node.args.get("query") is not None and isinstance(in_node.args.get("query").this, exp.Select):
                     new_query = _match_all(in_node.args["query"].this, views)
                     in_node.set("query", new_query)
 
@@ -231,16 +232,20 @@ def _match_all(query_ast_node,views):
         #print(type(new_node))
         return new_node
     else:
-        for view in views:
+        for name in views:
             #print(view,type(view))
-            try:
-            #print(str(query_ast_node)," $$$")
-                match_res=_spjg_view_match(str(query_ast_node),view,False)
-                if match_res and match_res!="":
+            if True:
+                try:
+                    # print(str(query_ast_node)," $$$")
+                    match_res = _spjg_view_match(str(query_ast_node), views[name], False)
+                    if match_res and match_res != "":
+                        return parse_one(match_res)
+                except Exception as e:
+                    print(f"处理失败: {e}")
+            else:
+                match_res = _spjg_view_match(str(query_ast_node), views[name], False)
+                if match_res and match_res != "":
                     return parse_one(match_res)
-            except Exception as e:
-                print(f"处理失败: {e}")
-                continue
         return new_node#是否正确？
 
 def _match_top(query_sql:str,view_sqls:List[str])->str:

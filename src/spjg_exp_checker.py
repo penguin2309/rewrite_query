@@ -29,7 +29,12 @@ def validate_spjg(ast):
                     continue
                 elif isinstance(k, expressions.Literal):
                     continue
+                elif isinstance(k, expressions.Cast):
+                    continue
+                elif isinstance(k, expressions.DPipe):
+                    continue
                 else:
+                    print('\033[91m',type(k),'\033[0m')
                     raise ValueError("err1 in validate spjg")
         elif not isinstance(expr, expressions.Column) and not isinstance(expr, expressions.Round):
             raise ValueError("err2 in validate spjg")

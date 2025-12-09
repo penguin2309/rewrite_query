@@ -9,18 +9,31 @@ from expr_checker import is_exp_eq
 def check_group_by_subset(query_spj, view_spj,eq_classes_q):
     query_cols = query_spj.get_all_group_by_columns()
     view_cols = view_spj.get_all_group_by_columns()
+    query_rollup=query_spj.group_by_rollup
+    view_rollup=view_spj.group_by_rollup
     #print("query_cols",query_cols)
     #print("view_cols",view_cols)
-    if len(view_cols)==0:
+    if len(view_cols)==0 and len(view_rollup)==0:
         return True
-    for col in query_cols:
-        eq_cols=eq_classes_q.get_all_eq_cols(col)
-        flag=False
-        for eq_col in eq_cols:
-            if eq_col in view_cols:
-                flag=True
-                break
-        if not flag:
+    if len(view_cols)!=0:
+        for col in query_cols:
+            eq_cols = eq_classes_q.get_all_eq_cols(col)
+            if eq_cols is None or len(eq_cols) == 0:
+                if col in view_cols:
+                    continue
+                else:
+                    return False
+            flag = False
+            for eq_col in eq_cols:
+                if eq_col in view_cols:
+                    flag = True
+                    break
+            if not flag:
+                return False
+    for roll_col in query_rollup:
+        if roll_col in view_rollup:
+            continue
+        else:
             return False
     return True
 

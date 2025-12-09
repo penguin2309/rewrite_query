@@ -2,7 +2,7 @@ import sympy as sp
 from sympy import symbols, sympify, simplify
 from collections import defaultdict
 from typing import List, Tuple, Union
-
+from sqlglot import expressions
 
 def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
     """
@@ -23,6 +23,11 @@ def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
     """
     #print(exp1, exp2, eq_classes)
     try:
+        if isinstance(exp1, expressions.Cast) and isinstance(exp2, expressions.Cast):
+            return exp1.this.this==exp2.this.this and exp1.to==exp2.to
+        if isinstance(exp1, expressions.Round) and isinstance(exp2, expressions.Round):
+            return exp1.this==exp2.this and exp1.args["decimals"]==exp2.args["decimals"]
+
         # 解析表达式
         expr1 = sympify(exp1)
         expr2 = sympify(exp2)

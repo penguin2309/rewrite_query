@@ -186,7 +186,7 @@ def test3(PU_q, PU_v, eq_classes_q,legal_view_col_set):
                         if current_col in replacement_map:
                             new_col = replacement_map[current_col]
                             return exp.Column(
-                                this=exp.Identifier(this=new_col.name),
+                                this=exp.Identifier(this=new_col.col),
                                 table=exp.Identifier(this=new_col.table) if new_col.table else None
                             )
                     return node
@@ -214,12 +214,14 @@ def find_col_to_replace(legal_view_col_set,eq_classes,col,eq_classes_q=None):
                     return c
                 col_q = c
                 break
+        if eq_classes_q is None:
+            return col
         for cols in eq_classes_q:
             for c in cols:
                 if c==col_q:
                     #print(c.alias,"###")
                     return c
-    return None
+    return col
 
 def can_express_compensating_predicates(legal_view_col_set,eq_classes,compensation_eq,compensation_ra):
     changed_compensation_eq=[]
@@ -267,6 +269,7 @@ def can_compute_query_output_from_view(cols_q,cols_v,exprs_q,exprs_v,v_expr_alia
         else:
             return False,None
     for expr_q in exprs_q:
+        flag=False
         for i,expr_v in enumerate(exprs_v):
             if is_exp_eq(expr_q,expr_v):
                 if v_expr_alias[i]=="":
@@ -274,6 +277,10 @@ def can_compute_query_output_from_view(cols_q,cols_v,exprs_q,exprs_v,v_expr_alia
                 else:
                     v_=v_expr_alias[i]
                 changed_select_cols.append((v_,expr_q))
+                flag=True
+                break
+        if not flag:
+            return False,None
     changed_select_cols=list(set(changed_select_cols))
     return True,changed_select_cols
 
