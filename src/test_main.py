@@ -4,28 +4,13 @@ from ViewMatcher import view_match
 from tpc_query import Colors
 #sql_view=[]
 sql_query=[]
-'''
-sql_view.append("""
-select 'a'||dv_version as abcd,round(dv_version/dv_create_date,2) as jkl,'dd' as qwe
-from dbgen_version
-where dv_version>=0
-group by rollup(dv_version,dv_create_date);
-""")
-sql_view.append("""
-select d_week_seq,
-        sum(case when (d_day_name='Sunday') then sales_price else null end) sun_sales,
-        sum(case when (d_day_name='Monday') then sales_price else null end) mon_sales,
-        sum(case when (d_day_name='Tuesday') then sales_price else  null end) tue_sales,
-        sum(case when (d_day_name='Wednesday') then sales_price else null end) wed_sales,
-        sum(case when (d_day_name='Thursday') then sales_price else null end) thu_sales,
-        sum(case when (d_day_name='Friday') then sales_price else null end) fri_sales,
-        sum(case when (d_day_name='Saturday') then sales_price else null end) sat_sales
- from wscs 
-     ,date_dim
- where d_date_sk = ws_sold_date_sk
- group by d_week_seq
-        """)
-'''
+sql_view={"view1":"""
+AS SELECT c_customer_sk, ca_city, d_month_seq,ca_county, ca_state, cd_credit_rating, cd_dep_college_count, cd_dep_count, cd_dep_employed_count, cd_education_status, cd_gender, cd_marital_status, cd_purchase_estimate, d_week_seq, d_year, i_brand, i_brand_id, i_category, i_category_id, i_class, i_class_id, i_current_price, i_item_desc, i_item_id, i_item_sk, i_manufact_id, s_store_id, s_store_name, s_store_sk, ss_addr_sk, ss_customer_sk, ss_item_sk, ss_store_sk, ss_ticket_number, store.s_city, t_hour, t_minute, AVG(ss_coupon_amt) agg3, AVG(ss_ext_sales_price) avg_val, AVG(ss_ext_wholesale_cost) avg_val, AVG(ss_list_price) agg2, AVG(ss_quantity) agg1, AVG(ss_quantity) avg_val, AVG(ss_sales_price) agg4, COUNT(*) cnt, COUNT(*) cnt1, COUNT(*) cnt2, COUNT(*) cnt3, COUNT(*) cnt4, COUNT(*) cnt5, COUNT(*) cnt6, COUNT(*) number_sales, COUNT(*) sales_cnt, MAX(cd_dep_college_count) max_val, MAX(cd_dep_count) max_val, MAX(cd_dep_employed_count) max_val, MAX(csales) tpcds_cmax, SUM(CASE WHEN (d_day_name = 'Friday') THEN ss_sales_price ELSE NULL END) fri_sales, SUM(CASE WHEN (d_day_name = 'Monday') THEN ss_sales_price ELSE NULL END) mon_sales, SUM(CASE WHEN (d_day_name = 'Saturday') THEN ss_sales_price ELSE NULL END) sat_sales, SUM(CASE WHEN (d_day_name = 'Sunday') THEN ss_sales_price ELSE NULL END) sun_sales, SUM(CASE WHEN (d_day_name = 'Thursday') THEN ss_sales_price ELSE NULL END) thu_sales, SUM(CASE WHEN (d_day_name = 'Tuesday') THEN ss_sales_price ELSE NULL END) tue_sales, SUM(CASE WHEN (d_day_name = 'Wednesday') THEN ss_sales_price ELSE NULL END) wed_sales, SUM(COALESCE(sr_return_amt, 0)) returns, SUM(SUM(ss_ext_sales_price)) revenueratio, SUM(SUM(ss_sales_price)) cume_sales, SUM(ext_price) ext_price, SUM(ext_sales_price) sales_amt, SUM(ss_ext_sales_price) itemrevenue, SUM(ss_ext_sales_price) revenueratio, SUM(ss_ext_sales_price) sales, SUM(ss_ext_sales_price) ss_item_rev, SUM(ss_ext_sales_price) store_sales, SUM(ss_ext_sales_price) total_sales, SUM(ss_ext_wholesale_cost) sum_val, SUM(ss_net_profit - COALESCE(sr_net_loss, 0)) profit, SUM(ss_net_profit) profit, SUM(ss_net_profit) rank_within_parent, SUM(ss_net_profit) sum_val, SUM(ss_net_profit) total_sum, SUM(ss_quantity * ss_list_price) sales, SUM(ss_quantity) ss_qty, SUM(ss_quantity) sum_val, SUM(ss_sales_price) cume_sales, SUM(ss_sales_price) ss_sp, SUM(ss_wholesale_cost) ss_wc
+FROM store_sales
+JOIN date_dim ON date_dim.d_date_sk = store_sales.ss_sold_date_sk
+GROUP BY c_customer_sk, ca_city, ca_county, ca_state, cd_credit_rating, cd_dep_college_count, cd_dep_count, cd_dep_employed_count, cd_education_status, cd_gender, cd_marital_status, cd_purchase_estimate, d_week_seq, d_year, i_brand, i_brand_id, i_category, i_category_id, i_class, i_class_id, i_current_price, i_item_desc, i_item_id, i_item_sk, i_manufact_id, s_store_id, s_store_name, s_store_sk, ss_addr_sk, ss_customer_sk, ss_item_sk, ss_store_sk, ss_ticket_number, store.s_city, t_hour, t_minute;
+
+"""}
 sql_view=mv_transfer(r"D:\wechatdocuments\xwechat_files\qweasd1578256388_a398\msg\file\2025-11\m1_ddl.sql")
 sql_query.append("""
 -- start query 1 in stream 0 using template query97.tpl
@@ -34,7 +19,7 @@ select ss_customer_sk customer_sk
       ,ss_item_sk item_sk
 from store_sales,date_dim
 where ss_sold_date_sk = d_date_sk
-  and d_month_seq between 1212 and 1212 + 11
+  and d_month_seq between 1212 and 1223
 group by ss_customer_sk
         ,ss_item_sk),
 csci as(

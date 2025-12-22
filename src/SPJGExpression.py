@@ -88,6 +88,12 @@ class SPJGExpression:
             elif isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Count):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
+            elif isinstance(expr, expressions.Alias) and isinstance(expr.this,expressions.Max):
+                self.aggregates.append(expr)
+                self.aggr_exprs.append(expr.this)
+            elif isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Min):
+                self.aggregates.append(expr)
+                self.aggr_exprs.append(expr.this)
             elif str(expr.this).upper()=="COUNT_BIG(*)":
                 #print("COUNT_BIG(*)")
                 self.aggregates.append(expr)

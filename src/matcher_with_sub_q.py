@@ -104,7 +104,7 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     return query_sql
 
 def _spjg_view_match(query_sql,view_sql,view_name="VIEW",detail=True):
-    #print('\033[94mq:::',query_sql)
+    print('\033[94mq:::',view_name)
     tables_structure = tpc_build_tables_structure()
     query_spj=SPJGExpression(query_sql,tables_structure)
     view_spj=SPJGExpression(view_sql,tables_structure)
@@ -127,13 +127,14 @@ def _spjg_view_match(query_sql,view_sql,view_name="VIEW",detail=True):
     if not flag6:
         print("false6")
         return None
+    print(Colors.YELLOW, "New￥:",
+          "\nc1:", c1,
+          "\nc2:", c2,
+          "\nc3:", c3,
+          "\nselect:", changed_select_cols,
+          "\nagg:", rewrite_map, Colors.END)
     new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name)
-    print(Colors.YELLOW,"New￥:",
-          "\nc1:",c1,
-          "\nc2:",c2,
-          "\nc3:",c3,
-          "\nselect:",changed_select_cols,
-          "\nagg:",rewrite_map,Colors.END)
+
     if detail:
         return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
     else:
@@ -234,16 +235,16 @@ def _match_all(query_ast_node,views):
     else:
         for name in views:
             #print(view,type(view))
-            if True:
+            if True:#False:debug mode
                 try:
                     # print(str(query_ast_node)," $$$")
-                    match_res = _spjg_view_match(str(query_ast_node), views[name], False)
+                    match_res = _spjg_view_match(str(query_ast_node), views[name],name, False)
                     if match_res and match_res != "":
                         return parse_one(match_res)
                 except Exception as e:
                     print(f"处理失败: {e}")
             else:
-                match_res = _spjg_view_match(str(query_ast_node), views[name], False)
+                match_res = _spjg_view_match(str(query_ast_node), views[name],name, False)
                 if match_res and match_res != "":
                     return parse_one(match_res)
         return new_node#是否正确？

@@ -11,6 +11,3 @@ def mv_transfer(file_path):
             name=row.this.this.this
             mv_dict[name]=str(sql)
     return mv_dict
-
-k=mv_transfer(r"D:\wechatdocuments\xwechat_files\qweasd1578256388_a398\msg\file\2025-11\m1_ddl.sql")
-print(k["mv_003"])

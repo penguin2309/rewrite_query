@@ -35,9 +35,10 @@ def validate_spjg(ast):
                     continue
                 else:
                     print('\033[91m',type(k),'\033[0m')
-                    raise ValueError("err1 in validate spjg")
+                    #raise ValueError("err1 in validate spjg")
         elif not isinstance(expr, expressions.Column) and not isinstance(expr, expressions.Round):
-            raise ValueError("err2 in validate spjg")
+            print('\033[91m',type(expr),'\033[0m')
+            #raise ValueError("err2 in validate spjg")
 
 
 def _contains_subquery(node):
