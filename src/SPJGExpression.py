@@ -1,6 +1,6 @@
-from pyspark.sql.types import StructType
-from sqlglot import *
-from typing import List,Set,Optional
+from typing import List, Optional, Set
+from sqlglot import parse_one
+from sqlglot import expressions as exp
 from TableStructure import find_table
 from spjg_exp_checker import validate_spjg
 
@@ -30,7 +30,7 @@ class SPJGExpression:
         self.origin_sql=sql
         self.ast=parse_one(self.origin_sql)
         if len(self.ast.args.get("expressions"))==1 and \
-                isinstance(self.ast.args.get("expressions")[0],expressions.Literal):
+                isinstance(self.ast.args.get("expressions")[0],exp.Literal):
             self.ast.set("expressions",[])#select 1 ...
         self.tables=set()
         self.col=[]
@@ -74,24 +74,24 @@ class SPJGExpression:
                     print("OUTER JOIN")
         fr=self.ast.args.get("from")
         if fr:
-            for tab in self.ast.find_all(expressions.Table):
+            for tab in self.ast.find_all(exp.Table):
                 self.tables.add(tab.name)
 
         for expr in self.ast.expressions:
             #print("$$:::",expr.this,type(expr.this))
-            if isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Sum):
+            if isinstance(expr, exp.Alias) and isinstance(expr.this, exp.Sum):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
-            elif isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Avg):
+            elif isinstance(expr, exp.Alias) and isinstance(expr.this, exp.Avg):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
-            elif isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Count):
+            elif isinstance(expr, exp.Alias) and isinstance(expr.this, exp.Count):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
-            elif isinstance(expr, expressions.Alias) and isinstance(expr.this,expressions.Max):
+            elif isinstance(expr, exp.Alias) and isinstance(expr.this,exp.Max):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
-            elif isinstance(expr, expressions.Alias) and isinstance(expr.this, expressions.Min):
+            elif isinstance(expr, exp.Alias) and isinstance(expr.this, exp.Min):
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
             elif str(expr.this).upper()=="COUNT_BIG(*)":
@@ -99,7 +99,7 @@ class SPJGExpression:
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
             elif self.is_exp(self,expr):
-                if isinstance(expr,expressions.Alias):
+                if isinstance(expr,exp.Alias):
                     self.select_exprs.append(expr.this)
                     self.select_exprs_alias.append(expr.alias)
                 else:
@@ -107,10 +107,10 @@ class SPJGExpression:
                     self.select_exprs_alias.append("")
             else:
                 alias_name = None
-                if isinstance(expr, expressions.Alias):
+                if isinstance(expr, exp.Alias):
                     alias_name=expr.alias
                     expr=expr.this
-                if isinstance(expr, expressions.Literal):
+                if isinstance(expr, exp.Literal):
                     self.literal_expr.append(expr)
                     self.literal_expr_alias.append(alias_name)
                     continue
@@ -147,7 +147,7 @@ class SPJGExpression:
                             raise ValueError(f"Column '{col_node.name}' in WHERE must specify table")
                         else:
                             col_node.set("table", exp.Identifier(this=tb))
-                if isinstance(new_pred, expressions.Between):
+                if isinstance(new_pred, exp.Between):
                     p=self.split_between_expression(self,new_pred)
                     new_predicates.append(p[0])
                     new_predicates.append(p[1])
@@ -159,7 +159,7 @@ class SPJGExpression:
     def get_all_columns(self):
         cols=set(self.col)
         for p in self.where_predicates:
-            for col_node in p.find_all(expressions.Column):
+            for col_node in p.find_all(exp.Column):
                 cols.add(column(col_node.table,col_node.name))
         return cols
 
@@ -167,9 +167,9 @@ class SPJGExpression:
         EQpredicates=self.added_eq_classes
        # print("here",EQpredicates)
         for p in self.where_predicates:
-            if isinstance(p,expressions.EQ):
+            if isinstance(p,exp.EQ):
                 l,r=p.this,p.expression
-                if isinstance(r,expressions.Column) and isinstance(l,expressions.Column):
+                if isinstance(r,exp.Column) and isinstance(l,exp.Column):
                     EQpredicates.append((column(l.table,l.name,self.tables_structure),column(r.table,r.name,self.tables_structure)))
         EQpredicates=list(set(tuple(sorted(t_))for t_ in EQpredicates))
         return EQpredicates
@@ -194,44 +194,44 @@ class SPJGExpression:
     @staticmethod
     def get_aggregate_type(agg_expr):
         """获取聚合函数类型（count, sum, avg等）"""
-        if isinstance(agg_expr, expressions.Count):
+        if isinstance(agg_expr, exp.Count):
             return "count"
-        elif isinstance(agg_expr, expressions.Sum):
+        elif isinstance(agg_expr, exp.Sum):
             return "sum"
-        elif isinstance(agg_expr, expressions.Avg):
+        elif isinstance(agg_expr, exp.Avg):
             return "avg"
         return None
     @staticmethod
     def is_exp(self,expr):
-        if isinstance(expr, expressions.Alias):
-            if isinstance(expr.this, expressions.Round):
+        if isinstance(expr, exp.Alias):
+            if isinstance(expr.this, exp.Round):
                 return True
-            if isinstance(expr.this, expressions.Add):
+            if isinstance(expr.this, exp.Add):
                 return True
-            if isinstance(expr.this, expressions.Sub):
+            if isinstance(expr.this, exp.Sub):
                 return True
-            if isinstance(expr.this, expressions.Mul):
+            if isinstance(expr.this, exp.Mul):
                 return True
-            if isinstance(expr.this, expressions.Div):
+            if isinstance(expr.this, exp.Div):
                 return True
-            if isinstance(expr.this, expressions.Cast):
+            if isinstance(expr.this, exp.Cast):
                 return True
-            if isinstance(expr.this, expressions.DPipe):
+            if isinstance(expr.this, exp.DPipe):
                 return True
         else:
-            if isinstance(expr, expressions.Round):
+            if isinstance(expr, exp.Round):
                 return True
-            if isinstance(expr, expressions.Add):
+            if isinstance(expr, exp.Add):
                 return True
-            if isinstance(expr, expressions.Sub):
+            if isinstance(expr, exp.Sub):
                 return True
-            if isinstance(expr, expressions.Mul):
+            if isinstance(expr, exp.Mul):
                 return True
-            if isinstance(expr, expressions.Div):
+            if isinstance(expr, exp.Div):
                 return True
-            if isinstance(expr, expressions.Cast):
+            if isinstance(expr, exp.Cast):
                 return True
-            if isinstance(expr, expressions.DPipe):
+            if isinstance(expr, exp.DPipe):
                 return True
         return False
     @staticmethod

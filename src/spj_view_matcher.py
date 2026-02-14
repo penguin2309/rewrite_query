@@ -1,13 +1,9 @@
-from sqlglot import expressions as exp
-from numpy.f2py.auxfuncs import throw_error
-from sqlglot.expressions import false
-from typing import Dict, Tuple, Optional
-from SPJGExpression import SPJGExpression
+from collections import defaultdict
+from typing import Dict, Optional, Tuple
+from sqlglot import expressions as exp, parse_one
 from EquivalenceClassManager import EquivalenceClassManager
-from PredicateClassifier import *
-from TableStructure import *
-from SPJGExpression import *
-from src.expr_checker import is_exp_eq
+from SPJGExpression import column
+from expr_checker import is_exp_eq
 
 
 def test1(eq_classes_q, eq_classes_v):
@@ -24,7 +20,6 @@ def test1(eq_classes_q, eq_classes_v):
             print("in test1,false1")
             return False, None
     # 分类（按照query）
-    from collections import defaultdict
     q_groups = defaultdict(list)
     for j, i in v_to_q.items():
         q_groups[i].append(j)
@@ -83,7 +78,7 @@ def test2(PR_q, PR_v, eq_classes_q):
             case '==':
                 ranges_q[i] = (max(ranges_q[i][0], num - small_number), min(ranges_q[i][1], num + small_number))
             case _:
-                throw_error("error in test2")
+                raise ValueError("error in test2")
 
     for pr in PR_v:
         col, op, num = pr.col, pr.op, pr.num
@@ -105,7 +100,7 @@ def test2(PR_q, PR_v, eq_classes_q):
             case '==':
                 ranges_v[i] = (max(ranges_v[i][0], num - small_number), min(ranges_v[i][1], num + small_number))
             case _:
-                throw_error("error in test2")
+                raise ValueError("error in test2")
     for i in range(0, base + offset):
         if i < base:
             representative[i] = min(eq_classes_q[i])

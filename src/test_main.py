@@ -5,40 +5,89 @@ from tpc_query import Colors
 #sql_view=[]
 sql_query=[]
 sql_view={"view1":"""
-AS SELECT c_customer_sk, ca_city, d_month_seq,ca_county, ca_state, cd_credit_rating, cd_dep_college_count, cd_dep_count, cd_dep_employed_count, cd_education_status, cd_gender, cd_marital_status, cd_purchase_estimate, d_week_seq, d_year, i_brand, i_brand_id, i_category, i_category_id, i_class, i_class_id, i_current_price, i_item_desc, i_item_id, i_item_sk, i_manufact_id, s_store_id, s_store_name, s_store_sk, ss_addr_sk, ss_customer_sk, ss_item_sk, ss_store_sk, ss_ticket_number, store.s_city, t_hour, t_minute, AVG(ss_coupon_amt) agg3, AVG(ss_ext_sales_price) avg_val, AVG(ss_ext_wholesale_cost) avg_val, AVG(ss_list_price) agg2, AVG(ss_quantity) agg1, AVG(ss_quantity) avg_val, AVG(ss_sales_price) agg4, COUNT(*) cnt, COUNT(*) cnt1, COUNT(*) cnt2, COUNT(*) cnt3, COUNT(*) cnt4, COUNT(*) cnt5, COUNT(*) cnt6, COUNT(*) number_sales, COUNT(*) sales_cnt, MAX(cd_dep_college_count) max_val, MAX(cd_dep_count) max_val, MAX(cd_dep_employed_count) max_val, MAX(csales) tpcds_cmax, SUM(CASE WHEN (d_day_name = 'Friday') THEN ss_sales_price ELSE NULL END) fri_sales, SUM(CASE WHEN (d_day_name = 'Monday') THEN ss_sales_price ELSE NULL END) mon_sales, SUM(CASE WHEN (d_day_name = 'Saturday') THEN ss_sales_price ELSE NULL END) sat_sales, SUM(CASE WHEN (d_day_name = 'Sunday') THEN ss_sales_price ELSE NULL END) sun_sales, SUM(CASE WHEN (d_day_name = 'Thursday') THEN ss_sales_price ELSE NULL END) thu_sales, SUM(CASE WHEN (d_day_name = 'Tuesday') THEN ss_sales_price ELSE NULL END) tue_sales, SUM(CASE WHEN (d_day_name = 'Wednesday') THEN ss_sales_price ELSE NULL END) wed_sales, SUM(COALESCE(sr_return_amt, 0)) returns, SUM(SUM(ss_ext_sales_price)) revenueratio, SUM(SUM(ss_sales_price)) cume_sales, SUM(ext_price) ext_price, SUM(ext_sales_price) sales_amt, SUM(ss_ext_sales_price) itemrevenue, SUM(ss_ext_sales_price) revenueratio, SUM(ss_ext_sales_price) sales, SUM(ss_ext_sales_price) ss_item_rev, SUM(ss_ext_sales_price) store_sales, SUM(ss_ext_sales_price) total_sales, SUM(ss_ext_wholesale_cost) sum_val, SUM(ss_net_profit - COALESCE(sr_net_loss, 0)) profit, SUM(ss_net_profit) profit, SUM(ss_net_profit) rank_within_parent, SUM(ss_net_profit) sum_val, SUM(ss_net_profit) total_sum, SUM(ss_quantity * ss_list_price) sales, SUM(ss_quantity) ss_qty, SUM(ss_quantity) sum_val, SUM(ss_sales_price) cume_sales, SUM(ss_sales_price) ss_sp, SUM(ss_wholesale_cost) ss_wc
-FROM store_sales
-JOIN date_dim ON date_dim.d_date_sk = store_sales.ss_sold_date_sk
-GROUP BY c_customer_sk, ca_city, ca_county, ca_state, cd_credit_rating, cd_dep_college_count, cd_dep_count, cd_dep_employed_count, cd_education_status, cd_gender, cd_marital_status, cd_purchase_estimate, d_week_seq, d_year, i_brand, i_brand_id, i_category, i_category_id, i_class, i_class_id, i_current_price, i_item_desc, i_item_id, i_item_sk, i_manufact_id, s_store_id, s_store_name, s_store_sk, ss_addr_sk, ss_customer_sk, ss_item_sk, ss_store_sk, ss_ticket_number, store.s_city, t_hour, t_minute;
-
+SELECT 
+    i_item_id, 
+    d_year,
+    s_store_sk, 
+    sr_customer_sk, 
+    sr_store_sk, 
+    SUM(SR_RETURN_AMT_INC_TAX) ctr_total_return,
+    SUM(sr_net_loss) profit_loss,
+    SUM(sr_return_amt) returns,
+    SUM(sr_return_quantity) sr_item_qty,
+    SUM(sr_fee) tot_returns,  -- 对sr_fee求和
+    COUNT_BIG(*) cnt_big
+FROM store_returns
+JOIN date_dim ON date_dim.d_date_sk = store_returns.sr_returned_date_sk
+GROUP BY 
+    i_item_id, 
+    s_store_sk, 
+    sr_customer_sk, 
+    sr_store_sk,
+    d_year
 """}
-sql_view=mv_transfer(r"D:\wechatdocuments\xwechat_files\qweasd1578256388_a398\msg\file\2025-11\m1_ddl.sql")
+sql_view=mv_transfer(r"C:\Users\o2309\PycharmProjects\PythonProject1\m1_ddl.sql")
 sql_query.append("""
--- start query 1 in stream 0 using template query97.tpl
-with ssci as (
-select ss_customer_sk customer_sk
-      ,ss_item_sk item_sk
-from store_sales,date_dim
-where ss_sold_date_sk = d_date_sk
-  and d_month_seq between 1212 and 1223
-group by ss_customer_sk
-        ,ss_item_sk),
-csci as(
- select cs_bill_customer_sk customer_sk
-      ,cs_item_sk item_sk
-from catalog_sales,date_dim
-where cs_sold_date_sk = d_date_sk
-  and d_month_seq between 1212 and 1212 + 11
-group by cs_bill_customer_sk
-        ,cs_item_sk)
- select  sum(case when ssci.customer_sk is not null and csci.customer_sk is null then 1 else 0 end) store_only
-      ,sum(case when ssci.customer_sk is null and csci.customer_sk is not null then 1 else 0 end) catalog_only
-      ,sum(case when ssci.customer_sk is not null and csci.customer_sk is not null then 1 else 0 end) store_and_catalog
-from ssci full outer join csci on (ssci.customer_sk=csci.customer_sk
-                               and ssci.item_sk = csci.item_sk)
-limit 100;
+-- start query 1 in stream 0 using template query2.tpl
+with wscs as
+ (select sold_date_sk
+        ,sales_price
+  from (select ws_sold_date_sk sold_date_sk
+              ,ws_ext_sales_price sales_price
+        from web_sales 
+        union all
+        select cs_sold_date_sk sold_date_sk
+              ,cs_ext_sales_price sales_price
+        from catalog_sales)),
+ wswscs as 
+ (select d_week_seq,
+        sum(case when (d_day_name='Sunday') then sales_price else null end) sun_sales,
+        sum(case when (d_day_name='Monday') then sales_price else null end) mon_sales,
+        sum(case when (d_day_name='Tuesday') then sales_price else  null end) tue_sales,
+        sum(case when (d_day_name='Wednesday') then sales_price else null end) wed_sales,
+        sum(case when (d_day_name='Thursday') then sales_price else null end) thu_sales,
+        sum(case when (d_day_name='Friday') then sales_price else null end) fri_sales,
+        sum(case when (d_day_name='Saturday') then sales_price else null end) sat_sales
+ from wscs
+     ,date_dim
+ where d_date_sk = sold_date_sk
+ group by d_week_seq)
+ select d_week_seq1
+       ,round(sun_sales1/sun_sales2,2)
+       ,round(mon_sales1/mon_sales2,2)
+       ,round(tue_sales1/tue_sales2,2)
+       ,round(wed_sales1/wed_sales2,2)
+       ,round(thu_sales1/thu_sales2,2)
+       ,round(fri_sales1/fri_sales2,2)
+       ,round(sat_sales1/sat_sales2,2)
+ from
+ (select wswscs.d_week_seq d_week_seq1
+        ,sun_sales sun_sales1
+        ,mon_sales mon_sales1
+        ,tue_sales tue_sales1
+        ,wed_sales wed_sales1
+        ,thu_sales thu_sales1
+        ,fri_sales fri_sales1
+        ,sat_sales sat_sales1
+  from wswscs,date_dim 
+  where date_dim.d_week_seq = wswscs.d_week_seq and
+        d_year = 2001) y,
+ (select wswscs.d_week_seq d_week_seq2
+        ,sun_sales sun_sales2
+        ,mon_sales mon_sales2
+        ,tue_sales tue_sales2
+        ,wed_sales wed_sales2
+        ,thu_sales thu_sales2
+        ,fri_sales fri_sales2
+        ,sat_sales sat_sales2
+  from wswscs
+      ,date_dim 
+  where date_dim.d_week_seq = wswscs.d_week_seq and
+        d_year = 2001+1) z
+ where d_week_seq1=d_week_seq2-53
+ order by d_week_seq1;
 
--- end query 1 in stream 0 using template query97.tpl
-
+-- end query 1 in stream 0 using template query2.tpl
 
 """)
 #print('\033[89m',repr(parse_one(sql_view[1])),'\033[0m')

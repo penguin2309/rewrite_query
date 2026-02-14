@@ -1,16 +1,7 @@
-from spj_view_matcher import spj_view_match
-from sqlglot import expressions as exp
-from typing import Dict,Tuple,Optional
-from SPJGExpression import SPJGExpression
-from EquivalenceClassManager import EquivalenceClassManager
-from PredicateClassifier import *
-from TableStructure import *
-from join_eliminator import eliminate_joins
-from agg_matcher import check_agg
-import re
+from typing import Dict
 from matcher_with_sub_q import _match_top
 
-def view_match(query_sql:str,view_sql:List[str])->str:
+def view_match(query_sql: str, view_sql: Dict[str, str]) -> str:
     return _match_top(query_sql,view_sql)
 
 """

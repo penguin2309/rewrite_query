@@ -1,10 +1,127 @@
-import sympy as sp
-from sympy import symbols, sympify, simplify
-from collections import defaultdict
-from typing import List, Tuple, Union
-from sqlglot import expressions
+import re
+from typing import Any, Dict, Iterable, Optional, Tuple
 
-def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
+import sympy as sp
+from sympy import sympify, simplify
+from sqlglot import expressions as exp
+from sqlglot import parse_one
+
+_QUALIFIER_RE = re.compile(r"\b[A-Za-z_]\w*\.")
+_QUOTE_RE = re.compile(r"[`\"]")
+
+
+def _expr_from_any(v: Any) -> Optional[exp.Expression]:
+    if isinstance(v, exp.Expression):
+        return v
+    if isinstance(v, str):
+        s = v.strip()
+        if not s:
+            return None
+        try:
+            return parse_one(s)
+        except Exception:
+            return None
+    return None
+
+
+def _col_key(obj: Any) -> Optional[Tuple[Optional[str], str]]:
+    table = getattr(obj, "table", None)
+    col = getattr(obj, "col", None)
+    if not col:
+        return None
+    table = table or None
+    return table, str(col)
+
+
+def _eq_index_map(eq_classes: Any) -> Dict[Tuple[Optional[str], str], int]:
+    out: Dict[Tuple[Optional[str], str], int] = {}
+    if not eq_classes:
+        return out
+    for i, cls in enumerate(eq_classes):
+        if not cls:
+            continue
+        for item in cls:
+            key = _col_key(item)
+            if not key:
+                continue
+            out[key] = i
+            out[(None, key[1])] = i
+    return out
+
+
+def _flatten_binop(node: exp.Expression, cls: type) -> list[exp.Expression]:
+    if isinstance(node, cls):
+        return _flatten_binop(node.this, cls) + _flatten_binop(node.expression, cls)
+    return [node]
+
+
+def _build_binop(parts: list[exp.Expression], cls: type) -> exp.Expression:
+    out = parts[0]
+    for p in parts[1:]:
+        out = cls(this=out, expression=p)
+    return out
+
+
+def _canonicalize_expr(node: exp.Expression, eq_map: Dict[Tuple[Optional[str], str], int]) -> exp.Expression:
+    def transform(n: exp.Expression) -> exp.Expression:
+        if isinstance(n, exp.Column):
+            key = (n.table or None, n.name)
+            idx = eq_map.get(key)
+            if idx is None:
+                idx = eq_map.get((None, n.name))
+            if idx is not None:
+                return exp.Column(this=exp.Identifier(this=f"__eq{idx}__"))
+            return n
+        if isinstance(n, exp.EQ):
+            l = n.this
+            r = n.expression
+            l_s = l.sql(normalize=True)
+            r_s = r.sql(normalize=True)
+            if r_s < l_s:
+                return exp.EQ(this=r, expression=l)
+            return n
+        if isinstance(n, exp.Add):
+            parts = _flatten_binop(n, exp.Add)
+            parts = [p.transform(transform) for p in parts]
+            parts.sort(key=lambda x: x.sql(normalize=True))
+            return _build_binop(parts, exp.Add)
+        if isinstance(n, exp.Mul):
+            parts = _flatten_binop(n, exp.Mul)
+            parts = [p.transform(transform) for p in parts]
+            parts.sort(key=lambda x: x.sql(normalize=True))
+            return _build_binop(parts, exp.Mul)
+        return n
+
+    return node.transform(transform)
+
+
+def _is_sympy_safe(node: exp.Expression) -> bool:
+    for n in node.walk():
+        if isinstance(
+            n,
+            (
+                exp.Case,
+                exp.Cast,
+                exp.Anonymous,
+                exp.Func,
+                exp.RegexpLike,
+                exp.In,
+                exp.Between,
+                exp.Like,
+            ),
+        ):
+            return False
+    return True
+
+
+def _canon_for_sympy(s: str) -> str:
+    s = _QUOTE_RE.sub("", s)
+    s = _QUALIFIER_RE.sub("", s)
+    s = re.sub(r"\s+", " ", s.strip())
+    return s
+
+
+def is_exp_eq(exp1: Any, exp2: Any, eq_classes=None) -> bool:
     """
     判断两个表达式是否在给定等价类条件下等价
 
@@ -21,64 +138,49 @@ def is_exp_eq(exp1: str, exp2: str, eq_classes= None) ->bool:
     Tuple[bool, str, str]
         (是否等价, 简化后的表达式1, 简化后的表达式2)
     """
-    #print(exp1, exp2, eq_classes)
     try:
-        if isinstance(exp1, expressions.Cast) and isinstance(exp2, expressions.Cast):
-            return exp1.this.this==exp2.this.this and exp1.to==exp2.to
-        if isinstance(exp1, expressions.Round) and isinstance(exp2, expressions.Round):
-            return exp1.this==exp2.this and exp1.args["decimals"]==exp2.args["decimals"]
+        e1 = _expr_from_any(exp1)
+        e2 = _expr_from_any(exp2)
+        if e1 is not None and e2 is not None:
+            if isinstance(e1, exp.Cast) and isinstance(e2, exp.Cast):
+                return e1.this.this == e2.this.this and e1.to == e2.to
+            if isinstance(e1, exp.Round) and isinstance(e2, exp.Round):
+                return e1.this == e2.this and e1.args.get("decimals") == e2.args.get("decimals")
 
-        # 解析表达式
-        expr1 = sympify(exp1)
-        expr2 = sympify(exp2)
+            eq_map = _eq_index_map(eq_classes)
+            c1 = _canonicalize_expr(e1, eq_map)
+            c2 = _canonicalize_expr(e2, eq_map)
+            s1 = c1.sql(normalize=True)
+            s2 = c2.sql(normalize=True)
+            if s1 == s2:
+                return True
 
-        # 提取表达式中的所有符号
-        symbols1 = expr1.free_symbols
-        symbols2 = expr2.free_symbols
-        all_symbols = symbols1.union(symbols2)
+            if _is_sympy_safe(c1) and _is_sympy_safe(c2):
+                try:
+                    x1 = sympify(_canon_for_sympy(s1))
+                    x2 = sympify(_canon_for_sympy(s2))
+                    return simplify(x1 - x2) == 0
+                except Exception:
+                    return False
 
-        # 构建等价代换字典
-        substitution_dict = {}
-        if eq_classes:
-            # 为每个等价类创建一个映射关系
-            eq_class_map = {}
-            for eq_class in eq_classes:
-                if eq_class:  # 确保非空
-                    # 获取sympy符号对象
-                    #sympy_symbols = [sp.Symbol(var) for var.col in eq_class]
-                    sympy_symbols=[]
-                    for c in eq_class:
-                        sympy_symbols.append(sp.Symbol(c.col))
-                    # 选择第一个符号作为标准
-                    standard_symbol = sympy_symbols[0]
+            return False
 
-                    # 其他符号映射到标准符号
-                    for symbol in sympy_symbols[1:]:
-                        substitution_dict[symbol] = standard_symbol
-
-            # 验证所有符号都在等价类中定义（可选）
-            # 如果不在等价类中的符号，保持原样
-
-        # 应用等价代换
-        if substitution_dict:
-            expr1_sub = expr1.subs(substitution_dict)
-            expr2_sub = expr2.subs(substitution_dict)
-        else:
-            expr1_sub = expr1
-            expr2_sub = expr2
-
-        # 简化表达式
-        expr1_simplified = simplify(expr1_sub)
-        expr2_simplified = simplify(expr2_sub)
-
-        # 判断是否等价
-        diff = simplify(expr1_simplified - expr2_simplified)
-        is_equivalent = (diff == 0)
-        return is_equivalent
+        s1 = str(exp1).strip()
+        s2 = str(exp2).strip()
+        if not s1 or not s2:
+            return s1 == s2
+        try:
+            p1 = parse_one(s1)
+            p2 = parse_one(s2)
+            eq_map = _eq_index_map(eq_classes)
+            c1 = _canonicalize_expr(p1, eq_map).sql(normalize=True)
+            c2 = _canonicalize_expr(p2, eq_map).sql(normalize=True)
+            return c1 == c2
+        except Exception:
+            n1 = re.sub(r"\s+", " ", _canon_for_sympy(s1).upper())
+            n2 = re.sub(r"\s+", " ", _canon_for_sympy(s2).upper())
+            return n1 == n2
 
     except Exception as e:
-        #print('\033[93m',exp1)
-        print('\033[92mIN expr_eq_checker:',e,'使用字符串匹配\033[0m')
-        return exp1==exp2
-        #raise ValueError(f"表达式解析或处理失败: {e}")
+        return str(exp1).strip() == str(exp2).strip()
 
