@@ -29,8 +29,8 @@ class SPJGExpression:
     def __init__(self,sql,tables_structure=None):
         self.origin_sql=sql
         self.ast=parse_one(self.origin_sql)
-        if len(self.ast.args.get("expressions"))==1 and \
-                isinstance(self.ast.args.get("expressions")[0],exp.Literal):
+        expressions = self.ast.args.get("expressions") or []
+        if len(expressions) == 1 and isinstance(expressions[0],exp.Literal):
             self.ast.set("expressions",[])#select 1 ...
         self.tables=set()
         self.col=[]
@@ -98,6 +98,10 @@ class SPJGExpression:
                 #print("COUNT_BIG(*)")
                 self.aggregates.append(expr)
                 self.aggr_exprs.append(expr.this)
+            elif isinstance(expr, (exp.Sum, exp.Avg, exp.Count, exp.Max, exp.Min)):
+                self.aggr_exprs.append(expr)
+            elif isinstance(expr, exp.Anonymous) and (expr.name or "").upper() == "COUNT_BIG":
+                self.aggr_exprs.append(expr)
             elif self.is_exp(self,expr):
                 if isinstance(expr,exp.Alias):
                     self.select_exprs.append(expr.this)
@@ -200,6 +204,10 @@ class SPJGExpression:
             return "sum"
         elif isinstance(agg_expr, exp.Avg):
             return "avg"
+        elif isinstance(agg_expr, exp.Min):
+            return "min"
+        elif isinstance(agg_expr, exp.Max):
+            return "max"
         return None
     @staticmethod
     def is_exp(self,expr):
@@ -218,6 +226,10 @@ class SPJGExpression:
                 return True
             if isinstance(expr.this, exp.DPipe):
                 return True
+            if isinstance(expr.this, (exp.Case, exp.Coalesce, exp.Substring,
+                                      exp.Abs, exp.Upper, exp.Lower,
+                                      exp.DateAdd, exp.DateDiff, exp.Anonymous)):
+                return True
         else:
             if isinstance(expr, exp.Round):
                 return True
@@ -232,6 +244,10 @@ class SPJGExpression:
             if isinstance(expr, exp.Cast):
                 return True
             if isinstance(expr, exp.DPipe):
+                return True
+            if isinstance(expr, (exp.Case, exp.Coalesce, exp.Substring,
+                                 exp.Abs, exp.Upper, exp.Lower,
+                                 exp.DateAdd, exp.DateDiff, exp.Anonymous)):
                 return True
         return False
     @staticmethod

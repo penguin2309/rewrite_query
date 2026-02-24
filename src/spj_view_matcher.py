@@ -199,24 +199,36 @@ def find_eq_cols(col,eq_classes):
             return cls
     return None
 
+def _pick_view_col(legal_view_col_set, col):
+    for v in legal_view_col_set:
+        if v == col:
+            return v
+    return None
+
 def find_col_to_replace(legal_view_col_set,eq_classes,col,eq_classes_q=None):
+    view_col = _pick_view_col(legal_view_col_set, col)
+    if view_col:
+        return view_col
     eq_class = find_eq_cols(col, eq_classes)
-    if eq_class:
-        col_q=None
+    if not eq_class:
+        return None
+    if eq_classes_q is None:
         for c in eq_class:
             if c in legal_view_col_set:
-                if eq_classes_q is None:
-                    return c
-                col_q = c
-                break
-        if eq_classes_q is None:
-            return col
-        for cols in eq_classes_q:
-            for c in cols:
-                if c==col_q:
-                    #print(c.alias,"###")
-                    return c
-    return col
+                return _pick_view_col(legal_view_col_set, c)
+        return None
+    col_q=None
+    for c in eq_class:
+        if c in legal_view_col_set:
+            col_q = _pick_view_col(legal_view_col_set, c)
+            break
+    if col_q is None:
+        return None
+    for cols in eq_classes_q:
+        for c in cols:
+            if c==col_q:
+                return col_q
+    return None
 
 def can_express_compensating_predicates(legal_view_col_set,eq_classes,compensation_eq,compensation_ra):
     changed_compensation_eq=[]

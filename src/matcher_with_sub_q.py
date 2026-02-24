@@ -14,7 +14,9 @@ from join_eliminator import eliminate_joins
 from agg_matcher import check_agg
 import re
 from spjg_exp_checker import _contains_subquery,validate_spjg
-from tpc_query import Colors
+class Colors:
+    YELLOW = '\033[93m'
+    END = '\033[0m'
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,31 @@ def _canonicalize_ast(node: exp.Expression) -> exp.Expression:
 
 def _collect_tables(node: exp.Expression) -> Set[str]:
     return {t.name for t in node.find_all(exp.Table)}
+
+
+def _top_level_tables(node: exp.Expression) -> Set[str]:
+    tables: Set[str] = set()
+    if isinstance(node, exp.Select):
+        from_clause = node.args.get("from")
+        if from_clause:
+            src = from_clause.this
+            if isinstance(src, exp.Table):
+                tables.add(src.name)
+        joins = node.args.get("joins") or []
+        for j in joins:
+            jt = j.this
+            if isinstance(jt, exp.Table):
+                tables.add(jt.name)
+        return tables
+    if isinstance(node, exp.Union):
+        left = node.this
+        right = node.expression
+        if isinstance(left, exp.Expression):
+            tables.update(_top_level_tables(left))
+        if isinstance(right, exp.Expression):
+            tables.update(_top_level_tables(right))
+        return tables
+    return tables
 
 
 def _signature(node: exp.Expression) -> Tuple:
@@ -205,10 +232,13 @@ def _try_match_union_as_whole(query_union: exp.Union, views: Dict[str, _ViewInfo
 
 
 def _signature_allows(query_node: exp.Expression, view_info: _ViewInfo) -> bool:
-    q_tables = _collect_tables(query_node)
+    q_top_tables = _top_level_tables(query_node)
     v_tables = _collect_tables(view_info.ast)
-    if q_tables and not q_tables.issubset(v_tables):
-        return False
+    if q_top_tables:
+        if view_info.name in q_top_tables:
+            pass
+        elif not q_top_tables.intersection(v_tables):
+            return False
     q_sig = _signature(query_node)
     if q_sig[0] == "UNION" and view_info.signature[0] != "UNION":
         return False
@@ -329,41 +359,48 @@ def sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name="VI
     return query_sql
 
 def _spjg_view_match(query_sql,view_sql,view_name="VIEW",detail=True):
-    print('\033[94mq:::',view_name)
-    tables_structure = tpc_build_tables_structure()
-    query_spj=SPJGExpression(query_sql,tables_structure)
-    view_spj=SPJGExpression(view_sql,tables_structure)
     try:
-        flag,query_spj=eliminate_joins(query_spj,view_spj,tables_structure)
-        if not flag:
-            print("false0")
-    except:
-        print("Query preparation failed")
-    #print(query_spj.col,query_spj.tables,query_spj.get_all_EQpredicates())
-    eq_classes_q=EquivalenceClassManager(query_spj.get_all_columns(),query_spj.get_all_EQpredicates())
-    eq_classes_v=EquivalenceClassManager(view_spj.get_all_columns(),view_spj.get_all_EQpredicates())
-    (PR_q,PU_q)=classify_predicates(query_spj)
-    (PR_v,PU_v)=classify_predicates(view_spj)
-    flag1,c1,c2,c3,changed_select_cols=spj_view_match(query_spj,view_spj,PR_q,PU_q,PR_v,PU_v,eq_classes_q,eq_classes_v)
-    if not flag1:
-        print("false1")
-        return None
-    (flag6,rewrite_map)=check_agg(query_spj,view_spj,eq_classes_q,eq_classes_v)
-    if not flag6:
-        print("false6")
-        return None
-    print(Colors.YELLOW, "New￥:",
-          "\nc1:", c1,
-          "\nc2:", c2,
-          "\nc3:", c3,
-          "\nselect:", changed_select_cols,
-          "\nagg:", rewrite_map, Colors.END)
-    new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name)
+        print('\033[94mchecking view:',view_name,'...\033[0m')
+        tables_structure = tpc_build_tables_structure()
+        query_spj=SPJGExpression(query_sql,tables_structure)
+        view_spj=SPJGExpression(view_sql,tables_structure)
+        try:
+            flag,query_spj=eliminate_joins(query_spj,view_spj,tables_structure)
+            if not flag:
+                print("false0")
+        except:
+            print("Query preparation failed")
+        #print(query_spj.col,query_spj.tables,query_spj.get_all_EQpredicates())
+        eq_classes_q=EquivalenceClassManager(query_spj.get_all_columns(),query_spj.get_all_EQpredicates())
+        eq_classes_v=EquivalenceClassManager(view_spj.get_all_columns(),view_spj.get_all_EQpredicates())
+        (PR_q,PU_q)=classify_predicates(query_spj)
+        (PR_v,PU_v)=classify_predicates(view_spj)
+        flag1,c1,c2,c3,changed_select_cols=spj_view_match(query_spj,view_spj,PR_q,PU_q,PR_v,PU_v,eq_classes_q,eq_classes_v)
+        if not flag1:
+            print("false1")
+            return None
+        (flag6,rewrite_map)=check_agg(query_spj,view_spj,eq_classes_q,eq_classes_v)
+        if not flag6:
+            print("false6")
+            return None
+        print(Colors.YELLOW, "New￥:",
+            "\nc1:", c1,
+            "\nc2:", c2,
+            "\nc3:", c3,
+            "\nselect:", changed_select_cols,
+            "\nagg:", rewrite_map, Colors.END)
+        new_query_sql=sql_rewrite(query_sql,c1,c2,c3,changed_select_cols,rewrite_map,view_name)
 
-    if detail:
-        return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
-    else:
-        return new_query_sql
+        if detail:
+            return True,c1,c2,c3,changed_select_cols,rewrite_map,new_query_sql
+        else:
+            return new_query_sql
+    except Exception as e:
+        print("\033[91min _spjg_view_match:",e,"\033[0m")
+        print("\033[91mreturn None\033[0m")
+        return None
+
+
 
 def _optimize_condition_in_place(cond, view):
     if isinstance(cond, exp.In):
@@ -383,6 +420,11 @@ def _optimize_condition_in_place(cond, view):
             _optimize_condition_in_place(cond.this, view)
         if hasattr(cond, 'expression') and cond.expression:
             _optimize_condition_in_place(cond.expression, view)
+    for sub in cond.find_all(exp.Subquery):
+        if isinstance(sub.this, (exp.Select, exp.Union)):
+            new_inner = _match_all(sub.this, view)
+            if isinstance(new_inner, (exp.Select, exp.Union)) and new_inner is not sub.this:
+                sub.set("this", new_inner)
 
 def _match_all(query_ast_node,views):
     return _match_all_ctx(query_ast_node, views, cte_to_view={})
@@ -471,6 +513,11 @@ def _match_all_ctx(query_ast_node: exp.Expression, views: Dict[str, _ViewInfo], 
             for exists_node in where_clause.find_all(exp.Exists):
                 new_inner = _match_all_ctx(exists_node.this, views, cte_to_view)
                 exists_node.set("this", new_inner)
+            for sub in where_clause.find_all(exp.Subquery):
+                if isinstance(sub.this, (exp.Select, exp.Union)):
+                    new_inner = _match_all_ctx(sub.this, views, cte_to_view)
+                    if isinstance(new_inner, (exp.Select, exp.Union)) and new_inner is not sub.this:
+                        sub.set("this", new_inner)
 
         new_expressions = []
         for expr in new_node.expressions:

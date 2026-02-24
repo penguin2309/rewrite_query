@@ -1,33 +1,4 @@
-from sqlglot import parse_one
-from mv_transfer import mv_transfer
-from ViewMatcher import view_match
-from tpc_query import Colors
-#sql_view=[]
-sql_query=[]
-sql_view={"view1":"""
-SELECT 
-    i_item_id, 
-    d_year,
-    s_store_sk, 
-    sr_customer_sk, 
-    sr_store_sk, 
-    SUM(SR_RETURN_AMT_INC_TAX) ctr_total_return,
-    SUM(sr_net_loss) profit_loss,
-    SUM(sr_return_amt) returns,
-    SUM(sr_return_quantity) sr_item_qty,
-    SUM(sr_fee) tot_returns,  -- 对sr_fee求和
-    COUNT_BIG(*) cnt_big
-FROM store_returns
-JOIN date_dim ON date_dim.d_date_sk = store_returns.sr_returned_date_sk
-GROUP BY 
-    i_item_id, 
-    s_store_sk, 
-    sr_customer_sk, 
-    sr_store_sk,
-    d_year
-"""}
-sql_view=mv_transfer(r"C:\Users\o2309\PycharmProjects\PythonProject1\0view.sql")
-sql_query.append("""
+-- start query 1 in stream 0 using template query2.tpl
 with wscs as
  (select sold_date_sk
         ,sales_price
@@ -86,24 +57,4 @@ with wscs as
  where d_week_seq1=d_week_seq2-53
  order by d_week_seq1;
 
-""")
-#print('\033[89m',repr(parse_one(sql_view[1])),'\033[0m')
-#print(repr(parse_one(sql_query[0])))
-for i,query in enumerate(sql_query):
-    if i==1:
-        break
-    print(f"====== start {i+1} ======")
-    new_query_sql=view_match(query,sql_view)
-    print(f"{Colors.MAGENTA}{Colors.BOLD}NEW SQL:\n", new_query_sql)
-    '''
-    flag,comp1,comp2,c3,sel,rewrite_map,new_query_sql=view_match(sql_query[i],view)
-    print(f"{Colors.GREEN}result:",flag)
-    print(f"{Colors.YELLOW}compensation1:",comp1)
-    print(f"{Colors.YELLOW}compensation2:",comp2)
-    print(c3)
-    print(f"{Colors.BLUE}spj_select_change:",sel)
-    print(f"{Colors.WHITE}agg_rewrite_map:",rewrite_map)
-    print(f"{Colors.MAGENTA}new_query_sql:",new_query_sql)
-    '''
-    print(f"{Colors.END}======  end {i+1}  ======\n\n\n")
-
+-- end query 1 in stream 0 using template query2.tpl

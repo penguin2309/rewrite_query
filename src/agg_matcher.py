@@ -73,12 +73,26 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
     # V 的 SUM(C) 参数的规范列到 V 输出列名的映射 {Canonical_Col: V_Output_Name}
     #不管里面是表达式or列，统一按照表达式处理
     v_sum_exp_args: list[tuple[exp.Expression, str]] = []
+    v_min_exp_args: list[tuple[exp.Expression, str]] = []
+    v_max_exp_args: list[tuple[exp.Expression, str]] = []
     for i, v_agg in enumerate(view_spj.aggr_exprs):
         v_output_name = view_spj.aggregates[i].alias
         if str(v_agg.this).upper() == "COUNT_BIG":#有问题?
             v_count_big_output_name =v_output_name
         elif isinstance(v_agg, exp.Sum):
             v_sum_exp_args.append((v_agg.this, v_output_name))
+        elif isinstance(v_agg, exp.Min):
+            v_min_exp_args.append((v_agg.this, v_output_name))
+        elif isinstance(v_agg, exp.Max):
+            v_max_exp_args.append((v_agg.this, v_output_name))
+    v_raw_cols: list[tuple[exp.Expression, str]] = []
+    for c in view_spj.col:
+        out_name = c.alias if c.alias else c.col
+        col_expr = exp.Column(
+            this=exp.Identifier(this=c.col),
+            table=exp.Identifier(this=c.table) if c.table else None
+        )
+        v_raw_cols.append((col_expr, out_name))
 
     # 2. 检查 Q 的聚合函数并记录重写信息
     for q_agg in query_spj.aggr_exprs:
@@ -106,6 +120,12 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
                         rewrite_map[str(q_agg)] =f"{v_out}"
                     flag=True
                     break
+            if not flag:
+                for v_arg_expr, v_out in v_raw_cols:
+                    if is_exp_eq(q_arg_expr, v_arg_expr, eq_manager_q.get_all_equivalences()):
+                        rewrite_map[str(q_agg)] = f"SUM({v_out})"
+                        flag=True
+                        break
             if not flag:
                 print(
                     f"Test Aggregation Failed: SUM argument '{q_arg_expr}' not found in view's canonical SUM arguments.")
@@ -140,6 +160,32 @@ def test_aggregation2(query_spj: SPJGExpression, view_spj: SPJGExpression,
                 rewrite_map[str(q_agg)] = f"SUM({sum_part}) / SUM({count_part})"
             else:
                 rewrite_map[str(q_agg)] = f"{sum_part} / {count_part}"
+
+        elif q_type == "min":
+            flag = False
+            for v_arg_expr, v_out in v_min_exp_args:
+                if is_exp_eq(q_arg_expr, v_arg_expr, eq_manager_q.get_all_equivalences()):
+                    if needs_rollup:
+                        rewrite_map[str(q_agg)] = f"MIN({v_out})"
+                    else:
+                        rewrite_map[str(q_agg)] = f"{v_out}"
+                    flag = True
+                    break
+            if not flag:
+                return False, None
+
+        elif q_type == "max":
+            flag = False
+            for v_arg_expr, v_out in v_max_exp_args:
+                if is_exp_eq(q_arg_expr, v_arg_expr, eq_manager_q.get_all_equivalences()):
+                    if needs_rollup:
+                        rewrite_map[str(q_agg)] = f"MAX({v_out})"
+                    else:
+                        rewrite_map[str(q_agg)] = f"{v_out}"
+                    flag = True
+                    break
+            if not flag:
+                return False, None
 
         # D. 忽略其他聚合函数
 
