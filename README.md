@@ -23,10 +23,11 @@ PythonProject1/
 │   ├── matcher_with_sub_q.py   # 带子查询的视图匹配
 │   ├── spjg_exp_checker.py     # SQL语法验证
 │   ├── TableStructure.py       # 表结构定义和缓存
-│   ├── test_tpcds.py           # TPCDS查询测试脚本
+│   ├── tpc_query_main.py       # TPCDS查询测试脚本
 │   ├── mv_transfer.py          # 从SQL文件提取物化视图
 │   ├── test_main.py            # 测试主文件
-│   └── ...                     # 其他辅助模块
+|   ├── config.py               # 配置文件（路径管理）
+│   └── ...                     # 其他模块见代码
 ├── test/               # TPCDS测试查询样例
 │   ├── query_1.sql
 │   ├── query_2.sql
@@ -56,7 +57,7 @@ PythonProject1/
 - **expr_checker.py**：表达式等价判断（优先基于sqlglot AST）
 
 ### 4. 测试模块
-- **test_tpcds.py**：TPCDS查询测试脚本，支持批量测试和单个查询测试
+- **tpc_query_main.py**：TPCDS查询测试脚
 - **test_main.py**：简单测试示例
 
 ## 匹配与重写流程（概览）
@@ -88,17 +89,34 @@ PythonProject1/
 pip install sqlglot
 ```
 
+### 配置管理
+
+项目使用 `config.py` 文件统一管理所有路径配置：
+
+```python
+# config.py
+DATA_PATH = "C:\\tpcds-data"
+PROJECT_ROOT = "C:\\Users\\o2309\\PycharmProjects\\PythonProject1"
+VIEW_DDL_FILE = f"{PROJECT_ROOT}\\m1_ddl.sql"
+DATA_FILES = {
+    "call_center": f"{DATA_PATH}\\call_center.dat",
+    # ... 其他数据文件
+}
+```
+
 ### 基本使用
 
 1. **定义物化视图**：在`m1_ddl.sql`文件中定义物化视图
 
-2. **执行单个查询测试**：
+2. **配置路径**：修改`config.py`中的路径配置以适应您的环境
+
+3. **执行单个查询测试**：
 
 ```bash
 python src/test_main.py
 ```
 
-3. **执行TPCDS查询测试**：
+4. **执行TPCDS查询测试**：
 
 ```bash
 python src/test_tpcds.py
@@ -109,9 +127,10 @@ python src/test_tpcds.py
 ```python
 from ViewMatcher import view_match
 from mv_transfer import mv_transfer
+from config import VIEW_DDL_FILE
 
-# 提取物化视图
-views = mv_transfer("m1_ddl.sql")
+# 提取物化视图（使用配置文件路径）
+views = mv_transfer(VIEW_DDL_FILE)
 
 # 原始查询
 query_sql = """

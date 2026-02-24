@@ -1,4 +1,5 @@
 import tpc_schema as t
+from config import DATA_FILES
 
 def read(spark):
 
@@ -7,145 +8,145 @@ def read(spark):
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.call_center_schema) \
-        .csv("C:\\tpcds-data\\call_center.dat")
+        .csv(DATA_FILES["call_center"])
 
     customer_address = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.customer_address_schema) \
-        .csv("C:\\tpcds-data\\customer_address.dat")
+        .csv(DATA_FILES["customer_address"])
 
     customer_demographics = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.customer_demographics_schema) \
-        .csv("C:\\tpcds-data\\customer_demographics.dat")
+        .csv(DATA_FILES["customer_demographics"])
 
     date_dim = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.date_dim_schema) \
-        .csv("C:\\tpcds-data\\date_dim.dat")
+        .csv(DATA_FILES["date_dim"])
 
     warehouse = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.warehouse_schema) \
-        .csv("C:\\tpcds-data\\warehouse.dat")
+        .csv(DATA_FILES["warehouse"])
 
     ship_mode = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.ship_mode_schema) \
-        .csv("C:\\tpcds-data\\ship_mode.dat")
+        .csv(DATA_FILES["ship_mode"])
 
     time_dim = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.time_dim_schema) \
-        .csv("C:\\tpcds-data\\time_dim.dat")
+        .csv(DATA_FILES["time_dim"])
 
     reason = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.reason_schema) \
-        .csv("C:\\tpcds-data\\reason.dat")
+        .csv(DATA_FILES["reason"])
 
     income_band = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.income_band_schema) \
-        .csv("C:\\tpcds-data\\income_band.dat")
+        .csv(DATA_FILES["income_band"])
 
     item = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.item_schema) \
-        .csv("C:\\tpcds-data\\item.dat")
+        .csv(DATA_FILES["item"])
 
     store = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.store_schema) \
-        .csv("C:\\tpcds-data\\store.dat")
+        .csv(DATA_FILES["store"])
 
     customer = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.customer_schema) \
-        .csv("C:\\tpcds-data\\customer.dat")
+        .csv(DATA_FILES["customer"])
 
     web_site = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.web_site_schema) \
-        .csv("C:\\tpcds-data\\web_site.dat")
+        .csv(DATA_FILES["web_site"])
 
     store_returns = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.store_returns_schema) \
-        .csv("C:\\tpcds-data\\store_returns.dat")
+        .csv(DATA_FILES["store_returns"])
 
     household_demographics = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.household_demographics_schema) \
-        .csv("C:\\tpcds-data\\household_demographics.dat")
+        .csv(DATA_FILES["household_demographics"])
 
     web_page = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.web_page_schema) \
-        .csv("C:\\tpcds-data\\web_page.dat")
+        .csv(DATA_FILES["web_page"])
 
     promotion = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.promotion_schema) \
-        .csv("C:\\tpcds-data\\promotion.dat")
+        .csv(DATA_FILES["promotion"])
 
     catalog_page = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.catalog_page_schema) \
-        .csv("C:\\tpcds-data\\catalog_page.dat")
+        .csv(DATA_FILES["catalog_page"])
 
     inventory = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.inventory_schema) \
-        .csv("C:\\tpcds-data\\inventory.dat")
+        .csv(DATA_FILES["inventory"])
 
     catalog_returns = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.catalog_returns_schema) \
-        .csv("C:\\tpcds-data\\catalog_returns.dat")
+        .csv(DATA_FILES["catalog_returns"])
 
     web_returns = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.web_returns_schema) \
-        .csv("C:\\tpcds-data\\web_returns.dat")
+        .csv(DATA_FILES["web_returns"])
 
     web_sales = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.web_sales_schema) \
-        .csv("C:\\tpcds-data\\web_sales.dat")
+        .csv(DATA_FILES["web_sales"])
 
     catalog_sales = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.catalog_sales_schema) \
-        .csv("C:\\tpcds-data\\catalog_sales.dat")
+        .csv(DATA_FILES["catalog_sales"])
 
     store_sales = spark.read \
         .option("header", "false") \
         .option("delimiter", "|") \
         .schema(t.store_sales_schema) \
-        .csv("C:\\tpcds-data\\store_sales.dat")
+        .csv(DATA_FILES["store_sales"])
 
     # 创建临时视图
     call_center.createOrReplaceTempView("call_center")

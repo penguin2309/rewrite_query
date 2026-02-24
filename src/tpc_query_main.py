@@ -1,11 +1,14 @@
 import os
 import time
+from config import VIEW_DDL_FILE,PROJECT_ROOT,QUERY_PATH
+
+# 环境变量配置
 os.environ['HADOOP_HOME'] = r'D:\code\hadoop-3.3.6'
 os.environ['HADOOP_COMMON_HOME'] = r'D:\code\hadoop-3.3.6'
 os.environ['HADOOP_HDFS_HOME'] = r'D:\code\hadoop-3.3.6'
 os.environ['JAVA_HOME'] = r'C:\Program Files\Java\jdk-17'
 os.environ['PATH'] = f"{os.environ['JAVA_HOME']}\\bin;{os.environ['HADOOP_HOME']}\\bin;{os.environ['PATH']}"
-os.environ['PYSPARK_PYTHON'] = r'C:\Users\o2309\PycharmProjects\PythonProject1\.venv\Scripts\python.exe'
+os.environ['PYSPARK_PYTHON'] = f"{PROJECT_ROOT}\\.venv\\Scripts\\python.exe"
 from sqlglot import parse, expressions
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import *
@@ -91,7 +94,7 @@ def main():
         web_page, promotion, catalog_page, inventory, catalog_returns, web_returns, \
         web_sales, catalog_sales, store_sales=r.read(spark)
 
-    ddl_path = r"C:\Users\o2309\PycharmProjects\PythonProject1\view.sql"
+    ddl_path = VIEW_DDL_FILE
     view_sqls = mv_transfer(ddl_path)
     ddl_map = load_mv_ddls(ddl_path)
     selected_views = prompt_views(ddl_map)
@@ -106,7 +109,8 @@ def main():
 
     start=int(input("start:"))
     end=int(input("end:"))
-    path=r"\\wsl.localhost\Ubuntu-24.04\home\o2309\tpcds-kit\tools\tpcds-query"
+    path=QUERY_PATH
+
     for i in range(start,end+1):
         file_path=os.path.join(path,f"query_{i}.sql")
         print(file_path)

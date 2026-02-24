@@ -1,7 +1,8 @@
 from sqlglot import parse_one
 from mv_transfer import mv_transfer
 from ViewMatcher import view_match
-from tpc_query import Colors
+from tpc_query_main import Colors
+from config import VIEW_DDL_FILE
 #sql_view=[]
 sql_query=[]
 sql_view={"view1":"""
@@ -26,7 +27,7 @@ GROUP BY
     sr_store_sk,
     d_year
 """}
-sql_view=mv_transfer(r"C:\Users\o2309\PycharmProjects\PythonProject1\0view.sql")
+sql_view=mv_transfer(VIEW_DDL_FILE)
 sql_query.append("""
 with wscs as
  (select sold_date_sk
